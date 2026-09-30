@@ -76,3 +76,9 @@ def test_an_output_of_unexpected_shape_is_an_error_and_not_a_crash() -> None:
     review = open_code_review.parse('{"status": "complete"}', "", 0)
 
     assert review == Review(error="unexpected open-code-review output: KeyError('comments')")
+
+
+def test_a_real_review_whose_model_never_finished_is_an_error() -> None:
+    review = parse("tool-rounds-exhausted.json", returncode=1)
+
+    assert review == Review(error="review incomplete (2 of 2 file(s) not reviewed): budget")

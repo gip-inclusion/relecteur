@@ -22,7 +22,7 @@
     "failure_by_tool": {},
     "failure_details": []
   },
-  "comments": [],
+  "comments": null,
   "session_id": "0b9e4c1a-2d7f-4e33-8c5b-1a6f9d2e7b40",
   "manifest": {
     "schema_version": "ocr.run-manifest/v1",
