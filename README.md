@@ -85,7 +85,7 @@ exits with:
 | 0 | Every validated case passed. |
 | 1 | At least one validated case failed. |
 | 2 | Invalid input: a malformed case, a missing API key, no repository found. |
-| 3 | No verdict: the model or the engine could not review a case (overload, quota reached, engine missing), and no case failed. |
+| 3 | No verdict: no case failed, but the model or the engine could not review a case (overload, quota reached, engine missing), or no case is validated yet. |
 
 An unavailable model is never a verdict: a review that did not cover every file of the pull
 request is reported as an error, not scored.
@@ -103,7 +103,8 @@ environment, then falls back to Albert.
 | | `RELECTEUR_API_KEY` | none, required |
 
 The engine runs with an empty home directory, so that a personal open-code-review
-configuration never overrides the model chosen here.
+configuration never overrides the model chosen here; git keeps the global configuration of
+the real home directory.
 
 ## Development
 

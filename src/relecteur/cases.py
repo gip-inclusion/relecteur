@@ -38,20 +38,21 @@ class InvalidCases(Exception):
         self.problems = problems
 
 
-def load_cases(path: Path) -> list[Case]:
-    """Loads the case in a file, or the cases in a directory, one `.toml` file per case.
+def load_cases(*paths: Path) -> list[Case]:
+    """Loads the cases of files or directories, one `.toml` file per case.
 
     Every problem of every file is reported at once, each one prefixed with its file.
     """
-    files = sorted(path.glob("*.toml")) if path.is_dir() else [path]
-    if not files:
-        raise InvalidCases([f"{path}: no case file (*.toml) in this directory"])
     cases, problems = [], []
-    for file in files:
-        try:
-            cases.append(_load(file))
-        except InvalidCases as invalid:
-            problems += invalid.problems
+    for path in paths:
+        files = sorted(path.glob("*.toml")) if path.is_dir() else [path]
+        if not files:
+            problems.append(f"{path}: no case file (*.toml) in this directory")
+        for file in files:
+            try:
+                cases.append(_load(file))
+            except InvalidCases as invalid:
+                problems += invalid.problems
     if problems:
         raise InvalidCases(problems)
     return cases
@@ -74,23 +75,14 @@ def _load(path: Path) -> Case:
         head=fields.sha("head"),
         provenance=fields.text("provenance"),
         max_findings=fields.count("max_findings"),
-        forbidden_remarks=_forbidden_remarks(fields),
+        forbidden_remarks=tuple(
+            ForbiddenRemark(remark.text("path"), remark.line("line"), remark.text("concept"))
+            for remark in fields.tables("forbidden_remarks", label="forbidden remark")
+        ),
     )
-    problems = fields.problems + fields.unknown()
-    if problems:
+    if problems := fields.problems:
         raise InvalidCases([f"{path}: {problem}" for problem in problems])
     return case
-
-
-def _forbidden_remarks(fields: "_Fields") -> tuple[ForbiddenRemark, ...]:
-    remarks = []
-    for number, table in enumerate(fields.tables("forbidden_remarks"), start=1):
-        remark = _Fields(table, label=f"forbidden remark {number}: ")
-        remarks.append(
-            ForbiddenRemark(remark.text("path"), remark.line("line"), remark.text("concept"))
-        )
-        fields.problems += remark.problems + remark.unknown()
-    return tuple(remarks)
 
 
 class _Fields:
@@ -100,7 +92,16 @@ class _Fields:
         self._table = table
         self._label = label
         self._read: set[str] = set()
-        self.problems: list[str] = []
+        self._problems: list[str] = []
+        self._tables: list[_Fields] = []
+
+    @property
+    def problems(self) -> list[str]:
+        """Problems of the fields read so far, of unknown fields, and of the tables read."""
+        unknown = [
+            f"{self._label}unknown field '{name}'" for name in self._table if name not in self._read
+        ]
+        return self._problems + unknown + [problem for t in self._tables for problem in t.problems]
 
     def text(self, name: str) -> Any:
         return self._get(
@@ -129,30 +130,30 @@ class _Fields:
     def line(self, name: str) -> Any:
         return self._get(name, lambda value: _integer(value) and value >= 1, "a line number")
 
-    def tables(self, name: str) -> list[dict[str, Any]]:
+    def tables(self, name: str, label: str) -> list["_Fields"]:
+        """Readers of an optional array of tables, each labelled with its number in problems."""
+        self._read.add(name)
         if name not in self._table:
-            self._read.add(name)
             return []
         tables = self._get(
             name,
             lambda value: isinstance(value, list) and all(isinstance(t, dict) for t in value),
             "an array of tables",
         )
-        return tables or []
-
-    def unknown(self) -> list[str]:
-        return [
-            f"{self._label}unknown field '{name}'" for name in self._table if name not in self._read
+        self._tables = [
+            _Fields(table, label=f"{self._label}{label} {number}: ")
+            for number, table in enumerate(tables or [], start=1)
         ]
+        return self._tables
 
     def _get(self, name: str, valid: Callable[[Any], bool], expectation: str) -> Any:
         self._read.add(name)
         if name not in self._table:
-            self.problems.append(f"{self._label}missing field '{name}'")
+            self._problems.append(f"{self._label}missing field '{name}'")
             return None
         value = self._table[name]
         if not valid(value):
-            self.problems.append(f"{self._label}'{name}' must be {expectation}, got {value!r}")
+            self._problems.append(f"{self._label}'{name}' must be {expectation}, got {value!r}")
             return None
         return value
 

@@ -70,3 +70,9 @@ def test_an_engine_stopping_without_output_is_an_error_carrying_its_message() ->
         error="open-code-review exited with code 1: "
         "Error: resolve LLM endpoint: no valid LLM endpoint configured"
     )
+
+
+def test_an_output_of_unexpected_shape_is_an_error_and_not_a_crash() -> None:
+    review = open_code_review.parse('{"status": "complete"}', "", 0)
+
+    assert review == Review(error="unexpected open-code-review output: KeyError('comments')")

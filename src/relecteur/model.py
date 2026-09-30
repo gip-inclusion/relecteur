@@ -18,18 +18,14 @@ class Model:
     api_key: str = field(repr=False)
 
     @classmethod
-    def configure(
-        cls, environ: Mapping[str, str], url: str | None = None, name: str | None = None
+    def from_environment(
+        cls, environ: Mapping[str, str], url: str | None, name: str | None
     ) -> "Model":
-        """Reads the model from the call arguments, then the environment, then the defaults."""
+        """The model given by the call arguments, then the environment, then the defaults."""
+        url = url or environ.get("RELECTEUR_MODEL_URL") or DEFAULT_URL
         api_key = environ.get("RELECTEUR_API_KEY", "")
         if not api_key:
             raise MissingApiKey(
-                "RELECTEUR_API_KEY is not set: it holds the API key of the model endpoint "
-                f"({url or environ.get('RELECTEUR_MODEL_URL') or DEFAULT_URL})"
+                f"RELECTEUR_API_KEY is not set: it holds the API key of the model endpoint ({url})"
             )
-        return cls(
-            url=url or environ.get("RELECTEUR_MODEL_URL") or DEFAULT_URL,
-            name=name or environ.get("RELECTEUR_MODEL") or DEFAULT_NAME,
-            api_key=api_key,
-        )
+        return cls(url, name or environ.get("RELECTEUR_MODEL") or DEFAULT_NAME, api_key)

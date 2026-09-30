@@ -37,16 +37,21 @@ def review(repo: Path, base: str, head: str, model: Model) -> Review:
 
 
 def _environment(model: Model, home: str) -> dict[str, str]:
-    return {
+    environment = {
         **os.environ,
         # The engine reads ~/.opencodereview/config.json before its environment variables:
-        # an empty home leaves the model configured here as the only one in effect.
+        # an empty home leaves the model configured here as the only one in effect, while git
+        # keeps the global configuration of the real home (safe.directory, credentials).
         "HOME": home,
         "OCR_LLM_URL": model.url,
         "OCR_LLM_TOKEN": model.api_key,
         "OCR_LLM_MODEL": model.name,
         "OCR_LLM_PROTOCOL": "openai",
     }
+    environment.setdefault("XDG_CONFIG_HOME", str(Path.home() / ".config"))
+    if (Path.home() / ".gitconfig").exists():
+        environment.setdefault("GIT_CONFIG_GLOBAL", str(Path.home() / ".gitconfig"))
+    return environment
 
 
 def parse(stdout: str, stderr: str, returncode: int) -> Review:
@@ -60,9 +65,12 @@ def parse(stdout: str, stderr: str, returncode: int) -> Review:
     except json.JSONDecodeError:
         last_line = stderr.strip().splitlines()[-1] if stderr.strip() else "no output"
         return Review(error=f"open-code-review exited with code {returncode}: {last_line}")
-    if output["status"] not in _COMPLETE:
-        return Review(error=_incompleteness(output))
-    return Review(findings=tuple(_finding(comment) for comment in output["comments"]))
+    try:
+        if output["status"] not in _COMPLETE:
+            return Review(error=_incompleteness_error(output))
+        return Review(findings=tuple(_finding(comment) for comment in output["comments"]))
+    except (KeyError, TypeError) as error:
+        return Review(error=f"unexpected open-code-review output: {error!r}")
 
 
 def _finding(comment: dict[str, Any]) -> Finding:
@@ -74,7 +82,7 @@ def _finding(comment: dict[str, Any]) -> Finding:
     )
 
 
-def _incompleteness(output: dict[str, Any]) -> str:
+def _incompleteness_error(output: dict[str, Any]) -> str:
     manifest = output.get("manifest") or {}
     failed = manifest.get("coverage", {}).get("failed", [])
     selected = manifest.get("coverage", {}).get("selected", [])
@@ -82,11 +90,11 @@ def _incompleteness(output: dict[str, Any]) -> str:
     if run_failure := manifest.get("run_failure"):
         causes.append(f"{run_failure['classification']}: {run_failure.get('reason', '')}")
     unavailable = any(item["classification"] == "provider" for item in failed)
+    scope = f" ({len(failed)} of {len(selected)} file(s) not reviewed)" if selected else ""
     return (
         ("model unavailable, " if unavailable else "")
-        + "review incomplete"
-        + (f" ({len(failed)} of {len(selected)} file(s) not reviewed)" if selected else "")
-        + f": {', '.join(causes) or output.get('message', output['status'])}"
+        + f"review incomplete{scope}: "
+        + (", ".join(causes) or output.get("message", output["status"]))
     )
 
 

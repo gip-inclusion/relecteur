@@ -8,8 +8,7 @@ class RepositoryError(Exception):
 
 def root(path: Path) -> Path:
     """The root of the git repository holding `path`."""
-    directory = path if path.is_dir() else path.parent
-    completed = _git(directory, "rev-parse", "--show-toplevel")
+    completed = _git(path if path.is_dir() else path.parent, "rev-parse", "--show-toplevel")
     if completed.returncode != 0:
         raise RepositoryError(f"{path} is not inside a git repository: pass --repo")
     return Path(completed.stdout.strip())

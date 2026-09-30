@@ -1,7 +1,6 @@
 import argparse
 import os
 import sys
-from collections.abc import Callable
 from pathlib import Path
 
 from relecteur import open_code_review, repository
@@ -10,7 +9,7 @@ from relecteur.model import MissingApiKey, Model
 from relecteur.review import Review
 from relecteur.scorer import Outcome, Report, evaluate
 
-EXIT_CODES = {Outcome.PASSED: 0, Outcome.FAILED: 1, Outcome.ERROR: 3}
+EXIT_CODES = {Outcome.PASSED: 0, Outcome.FAILED: 1, Outcome.ERROR: 3, Outcome.PENDING: 3}
 INVALID_INPUT = 2
 
 
@@ -18,11 +17,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="relecteur")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    run = commands.add_parser("eval", help="replay the validated cases and give a verdict")
-    run.add_argument("cases", type=Path, help="a case file, or a directory of case files")
-    run.add_argument("--repo", type=Path, help="evaluated repository (default: the one of CASES)")
-    run.add_argument("--model", help="model name (default: $RELECTEUR_MODEL, then Albert's)")
-    run.add_argument("--model-url", help="OpenAI-compatible endpoint (default: Albert)")
+    evaluation = commands.add_parser("eval", help="replay the validated cases and give a verdict")
+    evaluation.add_argument("cases", type=Path, help="a case file, or a directory of case files")
+    evaluation.add_argument("--repo", type=Path, help="evaluated repository (default: CASES's)")
+    evaluation.add_argument("--model", help="model name (default: $RELECTEUR_MODEL, then Albert's)")
+    evaluation.add_argument("--model-url", help="OpenAI-compatible endpoint (default: Albert)")
 
     validate = commands.add_parser("validate", help="check the format of case files")
     validate.add_argument("paths", type=Path, nargs="+", help="case files or directories")
@@ -34,14 +33,10 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _validate(paths: list[Path]) -> int:
-    cases, problems = [], []
-    for path in paths:
-        try:
-            cases += load_cases(path)
-        except InvalidCases as invalid:
-            problems += invalid.problems
-    if problems:
-        print("\n".join(problems), file=sys.stderr)
+    try:
+        cases = load_cases(*paths)
+    except InvalidCases as invalid:
+        print(invalid, file=sys.stderr)
         return 1
     drafts = sum(not case.validated for case in cases)
     print(f"{len(cases)} valid case(s): {len(cases) - drafts} validated, {drafts} draft")
@@ -51,7 +46,7 @@ def _validate(paths: list[Path]) -> int:
 def _eval(arguments: argparse.Namespace) -> int:
     try:
         cases = load_cases(arguments.cases)
-        model = Model.configure(os.environ, arguments.model_url, arguments.model)
+        model = Model.from_environment(os.environ, arguments.model_url, arguments.model)
         repo = (arguments.repo or repository.root(arguments.cases)).resolve()
     except (InvalidCases, MissingApiKey, repository.RepositoryError) as error:
         print(error, file=sys.stderr)
@@ -60,21 +55,19 @@ def _eval(arguments: argparse.Namespace) -> int:
         f"{len(cases)} case(s) in {arguments.cases}, reviewed by {model.name} at {model.url}",
         flush=True,
     )
-    report = evaluate(cases, _reviewer(repo, model))
+    reviews = {case: _review(case, repo, model) for case in cases if case.validated}
+    report = evaluate(cases, reviews)
     _print(report)
     return EXIT_CODES[report.outcome]
 
 
-def _reviewer(repo: Path, model: Model) -> Callable[[Case], Review]:
-    def review(case: Case) -> Review:
-        print(f"reviewing {case.name} ({case.base[:10]}..{case.head[:10]})", file=sys.stderr)
-        try:
-            repository.ensure_commits(repo, case.base, case.head)
-        except repository.RepositoryError as error:
-            return Review(error=str(error))
-        return open_code_review.review(repo, case.base, case.head, model)
-
-    return review
+def _review(case: Case, repo: Path, model: Model) -> Review:
+    print(f"reviewing {case.name} ({case.base[:10]}..{case.head[:10]})", file=sys.stderr)
+    try:
+        repository.ensure_commits(repo, case.base, case.head)
+    except repository.RepositoryError as error:
+        return Review(error=str(error))
+    return open_code_review.review(repo, case.base, case.head, model)
 
 
 def _print(report: Report) -> None:

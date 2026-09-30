@@ -93,49 +93,39 @@ DRAFT = replace(SILENT_PULL_REQUEST, name="pr-2-draft", validated=False)
 
 
 def test_only_validated_cases_count_in_the_verdict() -> None:
-    def review(case: Case) -> Review:
-        return Review() if case == SILENT_PULL_REQUEST else Review(findings=(finding(),))
+    reviews = {SILENT_PULL_REQUEST: Review(), DRAFT: Review(findings=(finding(),))}
 
-    report = evaluate([SILENT_PULL_REQUEST, DRAFT], review)
+    report = evaluate([SILENT_PULL_REQUEST, DRAFT], reviews)
 
     assert report.outcome is Outcome.PASSED
     assert [result.case for result in report.results] == [SILENT_PULL_REQUEST]
     assert report.pending == (DRAFT,)
 
 
-def test_a_draft_case_is_listed_as_pending_without_being_reviewed() -> None:
-    reviewed: list[Case] = []
+def test_without_any_validated_case_the_verdict_is_pending_and_not_a_pass() -> None:
+    report = evaluate([DRAFT], {})
 
-    def review(case: Case) -> Review:
-        reviewed.append(case)
-        return Review()
-
-    report = evaluate([DRAFT], review)
-
-    assert reviewed == []
-    assert report.pending == (DRAFT,)
+    assert report.outcome is Outcome.PENDING
 
 
 UNAVAILABLE = Review(error="model unavailable: overloaded (HTTP 503)")
+OTHER_SILENT_PULL_REQUEST = replace(SILENT_PULL_REQUEST, name="pr-3-approved-without-comment")
 
 
 def test_an_error_without_any_failure_makes_the_verdict_an_error_and_not_a_pass() -> None:
-    other = replace(SILENT_PULL_REQUEST, name="pr-3-approved-without-comment")
+    reviews = {SILENT_PULL_REQUEST: Review(), OTHER_SILENT_PULL_REQUEST: UNAVAILABLE}
 
-    report = evaluate(
-        [SILENT_PULL_REQUEST, other],
-        lambda case: UNAVAILABLE if case == other else Review(),
-    )
+    report = evaluate([SILENT_PULL_REQUEST, OTHER_SILENT_PULL_REQUEST], reviews)
 
     assert report.outcome is Outcome.ERROR
 
 
 def test_a_failed_case_fails_the_verdict_even_when_another_case_errored() -> None:
-    other = replace(SILENT_PULL_REQUEST, name="pr-3-approved-without-comment")
+    reviews = {
+        SILENT_PULL_REQUEST: Review(findings=(finding(),)),
+        OTHER_SILENT_PULL_REQUEST: UNAVAILABLE,
+    }
 
-    report = evaluate(
-        [SILENT_PULL_REQUEST, other],
-        lambda case: UNAVAILABLE if case == other else Review(findings=(finding(),)),
-    )
+    report = evaluate([SILENT_PULL_REQUEST, OTHER_SILENT_PULL_REQUEST], reviews)
 
     assert report.outcome is Outcome.FAILED
