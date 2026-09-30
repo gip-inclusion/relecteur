@@ -99,7 +99,7 @@ environment, then falls back to Albert.
 | Option | Environment variable | Default |
 | --- | --- | --- |
 | `--model-url` | `RELECTEUR_MODEL_URL` | `https://albert.api.etalab.gouv.fr/v1` |
-| `--model` | `RELECTEUR_MODEL` | `deepseek-v4-flash` |
+| `--model` | `RELECTEUR_MODEL` | `deepseek-v4-flash-0731` |
 | | `RELECTEUR_API_KEY` | none, required |
 
 The engine runs with an empty home directory, so that a personal open-code-review

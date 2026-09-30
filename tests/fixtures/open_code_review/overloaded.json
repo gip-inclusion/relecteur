@@ -2,7 +2,7 @@
   "status": "failed",
   "llm": {
     "provider": "custom",
-    "model": "deepseek-v4-flash"
+    "model": "deepseek-v4-flash-0731"
   },
   "message": "Review failed: 0 finding(s); 1 of 1 selected item(s) failed.",
   "summary": {
@@ -43,7 +43,7 @@
     "execution": {
       "ocr_version": "1.12.11",
       "provider": "custom",
-      "model": "deepseek-v4-flash"
+      "model": "deepseek-v4-flash-0731"
     },
     "coverage": {
       "selected": [{"item_id": "a1", "path": "src/billing.py"}],
@@ -73,7 +73,7 @@
       {
         "logical_request_id": "req-1",
         "provider": "custom",
-        "model": "deepseek-v4-flash",
+        "model": "deepseek-v4-flash-0731",
         "file_path": "src/billing.py",
         "task_type": "main_task",
         "request_no": 1,

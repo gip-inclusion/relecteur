@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 DEFAULT_URL = "https://albert.api.etalab.gouv.fr/v1"
-DEFAULT_NAME = "deepseek-v4-flash"
+DEFAULT_NAME = "deepseek-v4-flash-0731"
 
 
 class MissingApiKey(Exception):

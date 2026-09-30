@@ -2,7 +2,7 @@
   "status": "skipped",
   "llm": {
     "provider": "custom",
-    "model": "deepseek-v4-flash"
+    "model": "deepseek-v4-flash-0731"
   },
   "message": "No supported files changed.",
   "tool_calls": {

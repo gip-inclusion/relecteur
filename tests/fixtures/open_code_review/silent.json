@@ -2,7 +2,7 @@
   "status": "complete",
   "llm": {
     "provider": "custom",
-    "model": "deepseek-v4-flash"
+    "model": "deepseek-v4-flash-0731"
   },
   "message": "Review complete: 0 finding(s) across 1 selected item(s).",
   "summary": {
@@ -38,7 +38,7 @@
     "execution": {
       "ocr_version": "1.12.11",
       "provider": "custom",
-      "model": "deepseek-v4-flash"
+      "model": "deepseek-v4-flash-0731"
     },
     "coverage": {
       "selected": [{"item_id": "a1", "path": "src/billing.py"}],

@@ -2,7 +2,7 @@
   "status": "complete",
   "llm": {
     "provider": "custom",
-    "model": "deepseek-v4-flash"
+    "model": "deepseek-v4-flash-0731"
   },
   "message": "Review complete: 2 finding(s) across 2 selected item(s).",
   "summary": {
@@ -61,7 +61,7 @@
     "execution": {
       "ocr_version": "1.12.11",
       "provider": "custom",
-      "model": "deepseek-v4-flash",
+      "model": "deepseek-v4-flash-0731",
       "configured_concurrency": 8
     },
     "coverage": {
