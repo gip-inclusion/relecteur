@@ -1,0 +1,7 @@
+pull_request = "https://forge.example/team/app/pull/1"
+kind = "negative"
+status = "valide"
+base = "b2f7f9a327f098f6ef64d91d13c193353d92ab5d"
+head = "38ed0cb00af75b0fd9b533521af64be6dd397be0"
+provenance = "Approved by the maintainer without a single comment."
+max_findings = 0

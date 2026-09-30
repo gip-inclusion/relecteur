@@ -1,0 +1,120 @@
+# relecteur
+
+Evaluation harness for an automated code reviewer. It replays past pull requests of a
+repository through [open-code-review](https://github.com/alibaba/open-code-review), and tells
+whether the reviewer behaved as each case expects: on a pull request the maintainer approved
+without a single comment, the reviewer is expected to stay silent.
+
+The package assumes nothing about the language, framework or domain of the repository it
+evaluates: that repository only provides case files.
+
+## Prerequisites
+
+- Python 3.11 or later, and git.
+- The open-code-review CLI, version 1.12.11, which provides the `ocr` command:
+
+  ```sh
+  npm install --global @alibaba-group/open-code-review@1.12.11
+  ```
+
+- An API key for the model endpoint, in `RELECTEUR_API_KEY`. The default model is served by
+  [Albert](https://albert.api.etalab.gouv.fr): create the key from an Albert account,
+  preferably one attached to a service address rather than to a person.
+
+## Installation
+
+While the package is not published, install it from a local checkout into a virtual
+environment of the evaluated repository:
+
+```sh
+python3 -m venv .relecteur/.venv
+.relecteur/.venv/bin/pip install --editable ../relecteur
+```
+
+## Cases
+
+A case is a TOML file describing a past pull request, frozen by its base and head commits.
+The cases of a repository live in one directory of that repository, one file per case; the
+file name is the case name.
+
+```toml
+# fix(billing): apply the discount before the total
+pull_request = "https://github.com/team/app/pull/1234"
+kind = "negative"
+status = "draft"
+base = "b2f7f9a327f098f6ef64d91d13c193353d92ab5d"
+head = "38ed0cb00af75b0fd9b533521af64be6dd397be0"
+provenance = "Approved by the maintainer on 2026-09-29, without any review comment."
+max_findings = 0
+
+[[forbidden_remarks]]
+path = "src/billing.py"
+line = 42
+concept = "Asks to rename `total` although the name matches the invoice vocabulary."
+```
+
+| Field | Meaning |
+| --- | --- |
+| `pull_request` | Link or identifier of the pull request, for the humans reading the case. |
+| `kind` | `negative`: a pull request on which the reviewer should stay silent. |
+| `status` | `draft` for a case nobody has reviewed yet, `validated` once a human has. |
+| `base`, `head` | Full SHAs of the pull request's base and head commits. |
+| `provenance` | Where the ground truth comes from. |
+| `max_findings` | The case fails as soon as the reviewer makes more findings than this. |
+| `forbidden_remarks` | Optional. Remarks the reviewer must not make again: a finding covering `line` of `path` fails the case, whatever `max_findings` allows. |
+
+Only validated cases count in the verdict: draft cases are listed as pending and not
+reviewed. A case can be drafted by hand or by an agent; only a human sets it to `validated`.
+
+The harness replays a pull request from its recorded commits, with git alone, whatever
+the current state of branches: when a commit is missing locally, as with the head of a
+squash-merged pull request, it is fetched from the `origin` remote.
+
+## Usage
+
+```sh
+relecteur validate .relecteur/cases       # check the format of case files or directories
+relecteur eval .relecteur/cases           # review every validated case and give a verdict
+```
+
+`validate` exits with 1 when a case is invalid, naming each file and its problem. `eval`
+exits with:
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Every validated case passed. |
+| 1 | At least one validated case failed. |
+| 2 | Invalid input: a malformed case, a missing API key, no repository found. |
+| 3 | No verdict: the model or the engine could not review a case (overload, quota reached, engine missing), and no case failed. |
+
+An unavailable model is never a verdict: a review that did not cover every file of the pull
+request is reported as an error, not scored.
+
+## Model
+
+open-code-review reaches the model through an OpenAI-compatible endpoint. The model is
+configured, never written in code: each setting is read from the command line, then the
+environment, then falls back to Albert.
+
+| Option | Environment variable | Default |
+| --- | --- | --- |
+| `--model-url` | `RELECTEUR_MODEL_URL` | `https://albert.api.etalab.gouv.fr/v1` |
+| `--model` | `RELECTEUR_MODEL` | `deepseek-v4-flash` |
+| | `RELECTEUR_API_KEY` | none, required |
+
+The engine runs with an empty home directory, so that a personal open-code-review
+configuration never overrides the model chosen here.
+
+## Development
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install --editable '.[dev]'
+.venv/bin/pytest
+.venv/bin/mypy
+.venv/bin/ruff check . && .venv/bin/ruff format --check .
+```
+
+The test suite needs no application repository, no network access and no model: tests
+that try to open a connection fail. Only the scorer, the case loader and the engine adapter
+are tested, the adapter against frozen engine outputs.

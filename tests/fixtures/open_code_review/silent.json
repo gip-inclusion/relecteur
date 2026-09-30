@@ -1,0 +1,52 @@
+{
+  "status": "complete",
+  "llm": {
+    "provider": "custom",
+    "model": "deepseek-v4-flash"
+  },
+  "message": "Review complete: 0 finding(s) across 1 selected item(s).",
+  "summary": {
+    "files_reviewed": 1,
+    "comments": 0,
+    "total_tokens": 21877,
+    "input_tokens": 21034,
+    "output_tokens": 843,
+    "elapsed": "38s"
+  },
+  "tool_calls": {
+    "total": 2,
+    "by_tool": {
+      "file_read": 2
+    },
+    "failure": 0,
+    "failure_by_tool": {},
+    "failure_details": []
+  },
+  "comments": [],
+  "session_id": "0b9e4c1a-2d7f-4e33-8c5b-1a6f9d2e7b40",
+  "manifest": {
+    "schema_version": "ocr.run-manifest/v1",
+    "run_id": "run-2b8e",
+    "operation": "review",
+    "terminal_state": "complete",
+    "repository": {},
+    "input": {
+      "mode": "range",
+      "resolved_base": "b2f7f9a327f098f6ef64d91d13c193353d92ab5d",
+      "resolved_head": "38ed0cb00af75b0fd9b533521af64be6dd397be0"
+    },
+    "execution": {
+      "ocr_version": "1.12.11",
+      "provider": "custom",
+      "model": "deepseek-v4-flash"
+    },
+    "coverage": {
+      "selected": [{"item_id": "a1", "path": "src/billing.py"}],
+      "completed": [{"item_id": "a1", "path": "src/billing.py"}],
+      "reused": [],
+      "failed": [],
+      "waived": []
+    },
+    "elapsed_ms": 38102
+  }
+}

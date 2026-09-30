@@ -1,0 +1,82 @@
+{
+  "status": "complete",
+  "llm": {
+    "provider": "custom",
+    "model": "deepseek-v4-flash"
+  },
+  "message": "Review complete: 2 finding(s) across 2 selected item(s).",
+  "summary": {
+    "files_reviewed": 2,
+    "comments": 2,
+    "total_tokens": 48213,
+    "input_tokens": 45102,
+    "output_tokens": 3111,
+    "elapsed": "1m42s"
+  },
+  "tool_calls": {
+    "total": 9,
+    "by_tool": {
+      "code_comment": 2,
+      "code_search": 3,
+      "file_read": 4
+    },
+    "failure": 0,
+    "failure_by_tool": {},
+    "failure_details": []
+  },
+  "comments": [
+    {
+      "path": "src/billing.py",
+      "content": "`total` est calculé avant l'application de la remise : le montant facturé ignore la remise.",
+      "existing_code": "total = sum(line.amount for line in lines)",
+      "suggestion_code": "total = sum(line.amount for line in lines) - discount",
+      "start_line": 42,
+      "end_line": 42,
+      "category": "bug",
+      "severity": "high"
+    },
+    {
+      "path": "src/invoice.py",
+      "content": "La requête interpole `customer_id` dans le SQL : risque d'injection.",
+      "start_line": 17,
+      "end_line": 21,
+      "category": "security",
+      "severity": "critical"
+    }
+  ],
+  "session_id": "5f0c8a52-6f1e-4d2b-9a41-7d3e2b1c9e10",
+  "manifest": {
+    "schema_version": "ocr.run-manifest/v1",
+    "run_id": "run-7c1d",
+    "operation": "review",
+    "terminal_state": "complete",
+    "repository": {},
+    "input": {
+      "mode": "range",
+      "requested_from": "b2f7f9a327f098f6ef64d91d13c193353d92ab5d",
+      "requested_head": "38ed0cb00af75b0fd9b533521af64be6dd397be0",
+      "resolved_base": "b2f7f9a327f098f6ef64d91d13c193353d92ab5d",
+      "resolved_head": "38ed0cb00af75b0fd9b533521af64be6dd397be0"
+    },
+    "execution": {
+      "ocr_version": "1.12.11",
+      "provider": "custom",
+      "model": "deepseek-v4-flash",
+      "configured_concurrency": 8
+    },
+    "coverage": {
+      "selected": [
+        {"item_id": "a1", "path": "src/billing.py"},
+        {"item_id": "b2", "path": "src/invoice.py"}
+      ],
+      "completed": [
+        {"item_id": "a1", "path": "src/billing.py"},
+        {"item_id": "b2", "path": "src/invoice.py"}
+      ],
+      "reused": [],
+      "failed": [],
+      "waived": []
+    },
+    "elapsed_ms": 102114
+  }
+}
