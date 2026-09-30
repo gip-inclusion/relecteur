@@ -106,6 +106,27 @@ The engine runs with an empty home directory, so that a personal open-code-revie
 configuration never overrides the model chosen here; git keeps the global configuration of
 the real home directory.
 
+### Tool calls on Albert
+
+The engine works by having the model call its tools (read a file, search the code, post a
+remark). Albert's gateway up to version 0.8.0 turns a request that does not set `tool_choice`
+into `tool_choice: "none"`, against the OpenAI convention the engine relies on: DeepSeek then
+never calls a tool, and every review runs out of rounds. Albert 0.9.0 fixes it, with a deployment
+announced for 2026-10-19 ([changelog](https://guides.ia.numerique.gouv.fr/albert-api/ressources/changelog)).
+
+Until then, `relecteur eval` sends the engine's requests through a local relay that adds
+`tool_choice: "auto"` to the requests carrying tools, and forwards everything else unchanged.
+To run the engine directly, start the relay and point the engine to it:
+
+```sh
+relecteur proxy --port 8765        # in another terminal
+OCR_LLM_URL=http://127.0.0.1:8765 OCR_LLM_TOKEN=$RELECTEUR_API_KEY \
+OCR_LLM_MODEL=deepseek-v4-flash-0731 OCR_LLM_PROTOCOL=openai \
+ocr review --from <base> --to <head>
+```
+
+Remove the relay once Albert serves the fixed gateway.
+
 ## Development
 
 ```sh

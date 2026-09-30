@@ -1,11 +1,13 @@
 import argparse
 import os
 import sys
+from contextlib import suppress
+from dataclasses import replace
 from pathlib import Path
 
-from relecteur import open_code_review, repository
+from relecteur import open_code_review, proxy, repository
 from relecteur.cases import Case, InvalidCases, load_cases
-from relecteur.model import MissingApiKey, Model
+from relecteur.model import MissingApiKey, Model, endpoint_url
 from relecteur.review import Review
 from relecteur.scorer import Outcome, Report, evaluate
 
@@ -26,9 +28,15 @@ def main(argv: list[str] | None = None) -> int:
     validate = commands.add_parser("validate", help="check the format of case files")
     validate.add_argument("paths", type=Path, nargs="+", help="case files or directories")
 
+    relay = commands.add_parser("proxy", help="relay the model endpoint for a direct engine run")
+    relay.add_argument("--port", type=int, default=8765, help="local port (default: 8765)")
+    relay.add_argument("--model-url", help="OpenAI-compatible endpoint (default: Albert)")
+
     arguments = parser.parse_args(argv)
     if arguments.command == "validate":
         return _validate(arguments.paths)
+    if arguments.command == "proxy":
+        return _proxy(arguments.port, endpoint_url(os.environ, arguments.model_url))
     return _eval(arguments)
 
 
@@ -55,10 +63,19 @@ def _eval(arguments: argparse.Namespace) -> int:
         f"{len(cases)} case(s) in {arguments.cases}, reviewed by {model.name} at {model.url}",
         flush=True,
     )
-    reviews = {case: _review(case, repo, model) for case in cases if case.validated}
+    with proxy.relaying(model.url) as relay_url:
+        relayed = replace(model, url=relay_url)
+        reviews = {case: _review(case, repo, relayed) for case in cases if case.validated}
     report = evaluate(cases, reviews)
     _print(report)
     return EXIT_CODES[report.outcome]
+
+
+def _proxy(port: int, upstream: str) -> int:
+    print(f"relaying http://127.0.0.1:{port} to {upstream}, until interrupted", flush=True)
+    with suppress(KeyboardInterrupt):
+        proxy.serve(upstream, port)
+    return 0
 
 
 def _review(case: Case, repo: Path, model: Model) -> Review:
