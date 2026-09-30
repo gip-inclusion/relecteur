@@ -8,6 +8,7 @@ from pathlib import Path
 from relecteur import open_code_review, proxy, repository
 from relecteur.cases import Case, InvalidCases, load_cases
 from relecteur.model import MissingApiKey, Model, endpoint_url
+from relecteur.repository import CASES
 from relecteur.review import Review
 from relecteur.scorer import Outcome, Report, evaluate
 
@@ -20,13 +21,16 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
 
     evaluation = commands.add_parser("eval", help="replay the validated cases and give a verdict")
-    evaluation.add_argument("cases", type=Path, help="a case file, or a directory of case files")
-    evaluation.add_argument("--repo", type=Path, help="evaluated repository (default: CASES's)")
+    evaluation.add_argument(
+        "cases", type=Path, nargs="?", help=f"a case file or directory (default: {CASES})"
+    )
     evaluation.add_argument("--model", help="model name (default: $RELECTEUR_MODEL, then Albert's)")
     evaluation.add_argument("--model-url", help="OpenAI-compatible endpoint (default: Albert)")
 
     validate = commands.add_parser("validate", help="check the format of case files")
-    validate.add_argument("paths", type=Path, nargs="+", help="case files or directories")
+    validate.add_argument(
+        "paths", type=Path, nargs="*", help=f"case files or directories (default: {CASES})"
+    )
 
     relay = commands.add_parser("proxy", help="relay the model endpoint for a direct engine run")
     relay.add_argument("--port", type=int, default=8765, help="local port (default: 8765)")
@@ -42,9 +46,9 @@ def main(argv: list[str] | None = None) -> int:
 
 def _validate(paths: list[Path]) -> int:
     try:
-        cases = load_cases(*paths)
-    except InvalidCases as invalid:
-        print(invalid, file=sys.stderr)
+        cases = load_cases(*(paths or [repository.cases_directory(Path.cwd())]))
+    except (InvalidCases, repository.RepositoryError) as error:
+        print(error, file=sys.stderr)
         return 1
     drafts = sum(not case.validated for case in cases)
     print(f"{len(cases)} valid case(s): {len(cases) - drafts} validated, {drafts} draft")
@@ -53,14 +57,15 @@ def _validate(paths: list[Path]) -> int:
 
 def _eval(arguments: argparse.Namespace) -> int:
     try:
-        cases = load_cases(arguments.cases)
+        path = arguments.cases or repository.cases_directory(Path.cwd())
+        cases = load_cases(path)
         model = Model.from_environment(os.environ, arguments.model_url, arguments.model)
-        repo = (arguments.repo or repository.root(arguments.cases)).resolve()
+        repo = repository.root(path).resolve()
     except (InvalidCases, MissingApiKey, repository.RepositoryError) as error:
         print(error, file=sys.stderr)
         return INVALID_INPUT
     print(
-        f"{len(cases)} case(s) in {arguments.cases}, reviewed by {model.name} at {model.url}",
+        f"{len(cases)} case(s) in {path}, reviewed by {model.name} at {model.url}",
         flush=True,
     )
     with proxy.relaying(model.url) as relay_url:

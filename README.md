@@ -23,18 +23,20 @@ evaluates: that repository only provides case files.
 
 ## Installation
 
-While the package is not published, install it from a local checkout into a virtual
-environment of the evaluated repository:
+Install the `relecteur` command once, in its own environment, with
+[pipx](https://pipx.pypa.io) (`brew install pipx` on macOS). While the package is not
+published, install it from a local checkout:
 
 ```sh
-python3 -m venv .relecteur/.venv
-.relecteur/.venv/bin/pip install --editable ../relecteur
+pipx install --editable ../relecteur
 ```
+
+In a CI job, where the runner's Python is disposable, `pip install` does the same.
 
 ## Cases
 
 A case is a TOML file describing a past pull request, frozen by its base and head commits.
-The cases of a repository live in one directory of that repository, one file per case; the
+The cases of a repository live in its `.relecteur/cases` directory, one file per case; the
 file name is the case name.
 
 ```toml
@@ -72,10 +74,16 @@ squash-merged pull request, it is fetched from the `origin` remote.
 
 ## Usage
 
+Run from anywhere inside the evaluated repository:
+
 ```sh
-relecteur validate .relecteur/cases       # check the format of case files or directories
-relecteur eval .relecteur/cases           # review every validated case and give a verdict
+relecteur validate      # check the format of every case in .relecteur/cases
+relecteur eval          # review every validated case of .relecteur/cases and give a verdict
 ```
+
+Both commands read `.relecteur/cases` at the root of the repository by default, and stop with
+an explicit message when it does not exist. Pass a case file or directory to use another one:
+`relecteur eval .relecteur/cases/pr-1234.toml` replays a single case.
 
 `validate` exits with 1 when a case is invalid, naming each file and its problem. `eval`
 exits with:
