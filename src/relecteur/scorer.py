@@ -15,7 +15,6 @@ class Outcome(Enum):
     PASSED = "passed"
     FAILED = "failed"
     ERROR = "error"
-    PENDING = "pending"
 
 
 @dataclass(frozen=True)
@@ -29,15 +28,13 @@ class CaseResult:
 @dataclass(frozen=True)
 class Report:
     results: tuple[CaseResult, ...]
-    pending: tuple[Case, ...]
     outcome: Outcome
 
 
 def evaluate(cases: Sequence[Case], reviews: Mapping[Case, Review]) -> Report:
-    """Scores the validated cases against their reviews; draft cases stay pending."""
-    results = tuple(score(case, reviews[case]) for case in cases if case.validated)
-    pending = tuple(case for case in cases if not case.validated)
-    return Report(results, pending, _verdict(results))
+    """Scores every case against its review, and gives the verdict of the whole."""
+    results = tuple(score(case, reviews[case]) for case in cases)
+    return Report(results, _verdict(results))
 
 
 def score(case: Case, review: Review) -> CaseResult:
@@ -65,6 +62,4 @@ def _verdict(results: tuple[CaseResult, ...]) -> Outcome:
         return Outcome.FAILED
     if Outcome.ERROR in outcomes:
         return Outcome.ERROR
-    if not results:
-        return Outcome.PENDING
     return Outcome.PASSED

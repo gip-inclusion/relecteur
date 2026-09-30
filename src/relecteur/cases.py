@@ -1,12 +1,10 @@
 import re
 import tomllib
-from collections.abc import Callable, Collection
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-KINDS = ("negative",)
-STATUSES = ("draft", "validated")
 _SHA = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?")
 
 
@@ -23,11 +21,9 @@ class Case:
 
     name: str
     pull_request: str
-    kind: str
-    validated: bool
+    description: str
     base: str
     head: str
-    provenance: str
     max_findings: int
     forbidden_remarks: tuple[ForbiddenRemark, ...] = ()
 
@@ -69,11 +65,9 @@ def _load(path: Path) -> Case:
     case = Case(
         name=path.stem,
         pull_request=fields.text("pull_request"),
-        kind=fields.choice("kind", KINDS),
-        validated=fields.choice("status", STATUSES) == "validated",
+        description=fields.text("description"),
         base=fields.sha("base"),
         head=fields.sha("head"),
-        provenance=fields.text("provenance"),
         max_findings=fields.count("max_findings"),
         forbidden_remarks=tuple(
             ForbiddenRemark(remark.text("path"), remark.line("line"), remark.text("concept"))
@@ -106,13 +100,6 @@ class _Fields:
     def text(self, name: str) -> Any:
         return self._get(
             name, lambda value: isinstance(value, str) and bool(value.strip()), "a non-empty string"
-        )
-
-    def choice(self, name: str, choices: Collection[str]) -> Any:
-        return self._get(
-            name,
-            lambda value: value in choices,
-            "one of " + ", ".join(repr(choice) for choice in choices),
         )
 
     def sha(self, name: str) -> Any:

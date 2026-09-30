@@ -1,7 +1,5 @@
 pull_request = "https://forge.example/team/app/pull/1"
-kind = "negative"
-status = "validated"
+description = "Approved without a single comment: the reviewer should stay silent."
 base = "b2f7f9a"
 head = "38ed0cb00af75b0fd9b533521af64be6dd397be0"
-provenance = "Approved by the maintainer without a single comment."
 max_findings = 0

@@ -14,11 +14,10 @@ def test_a_pull_request_approved_without_comment_is_loaded_from_its_file() -> No
         Case(
             name="approved-without-comment",
             pull_request="https://forge.example/team/app/pull/1",
-            kind="negative",
-            validated=True,
+            description="Approved by the maintainer without a single comment: "
+            "the reviewer should stay silent.",
             base="b2f7f9a327f098f6ef64d91d13c193353d92ab5d",
             head="38ed0cb00af75b0fd9b533521af64be6dd397be0",
-            provenance="Approved by the maintainer without a single comment.",
             max_findings=0,
             forbidden_remarks=(
                 ForbiddenRemark(
@@ -34,9 +33,9 @@ def test_a_pull_request_approved_without_comment_is_loaded_from_its_file() -> No
 def test_a_directory_holds_one_case_per_file() -> None:
     cases = load_cases(CASES / "suite")
 
-    assert [(case.name, case.validated) for case in cases] == [
-        ("approved-without-comment", True),
-        ("drafted-by-an-agent", False),
+    assert [case.name for case in cases] == [
+        "approved-without-comment",
+        "thumbs-up-without-remark",
     ]
 
 
@@ -44,11 +43,9 @@ def test_a_directory_holds_one_case_per_file() -> None:
     ("file", "problem"),
     [
         ("missing-head.toml", "missing field 'head'"),
-        ("unknown-status.toml", "'status' must be one of 'draft', 'validated', got 'valide'"),
         ("abbreviated-sha.toml", "'base' must be a full commit SHA, got 'b2f7f9a'"),
         ("misspelled-field.toml", "unknown field 'max_finding'"),
         ("negative-ceiling.toml", "'max_findings' must be a non-negative integer, got -1"),
-        ("unsupported-kind.toml", "'kind' must be one of 'negative', got 'positive'"),
         ("not-toml.toml", "not valid TOML: "),
         ("remark-without-concept.toml", "forbidden remark 1: missing field 'concept'"),
     ],

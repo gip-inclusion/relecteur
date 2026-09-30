@@ -39,14 +39,14 @@ A case is a TOML file describing a past pull request, frozen by its base and hea
 The cases of a repository live in its `.relecteur/cases` directory, one file per case; the
 file name is the case name.
 
+Today every case is a silence case: a pull request the maintainer approved without a single
+comment, on which the reviewer is expected to stay silent.
+
 ```toml
-# fix(billing): apply the discount before the total
 pull_request = "https://github.com/team/app/pull/1234"
-kind = "negative"
-status = "draft"
+description = "Applies the discount before the total. Approved without any comment: the reviewer should stay silent."
 base = "b2f7f9a327f098f6ef64d91d13c193353d92ab5d"
 head = "38ed0cb00af75b0fd9b533521af64be6dd397be0"
-provenance = "Approved by the maintainer on 2026-09-29, without any review comment."
 max_findings = 0
 
 [[forbidden_remarks]]
@@ -58,15 +58,13 @@ concept = "Asks to rename `total` although the name matches the invoice vocabula
 | Field | Meaning |
 | --- | --- |
 | `pull_request` | Link or identifier of the pull request, for the humans reading the case. |
-| `kind` | `negative`: a pull request on which the reviewer should stay silent. |
-| `status` | `draft` for a case nobody has reviewed yet, `validated` once a human has. |
+| `description` | What the reviewer is expected to do, and why. Read by humans only: it is never shown to the reviewer. |
 | `base`, `head` | Full SHAs of the pull request's base and head commits. |
-| `provenance` | Where the ground truth comes from. |
 | `max_findings` | The case fails as soon as the reviewer makes more findings than this. |
 | `forbidden_remarks` | Optional. Remarks the reviewer must not make again: a finding covering `line` of `path` fails the case, whatever `max_findings` allows. |
 
-Only validated cases count in the verdict: draft cases are listed as pending and not
-reviewed. A case can be drafted by hand or by an agent; only a human sets it to `validated`.
+A case can be written by hand or drafted by an agent. Either way it counts once it is merged:
+add cases through a pull request, whose review is where a human vouches for them.
 
 The harness replays a pull request from its recorded commits, with git alone, whatever
 the current state of branches: when a commit is missing locally, as with the head of a
@@ -78,7 +76,7 @@ Run from anywhere inside the evaluated repository:
 
 ```sh
 relecteur validate      # check the format of every case in .relecteur/cases
-relecteur eval          # review every validated case of .relecteur/cases and give a verdict
+relecteur eval          # review every case of .relecteur/cases and give a verdict
 ```
 
 Both commands read `.relecteur/cases` at the root of the repository by default, and stop with
@@ -90,10 +88,10 @@ exits with:
 
 | Code | Meaning |
 | --- | --- |
-| 0 | Every validated case passed. |
-| 1 | At least one validated case failed. |
+| 0 | Every case passed. |
+| 1 | At least one case failed. |
 | 2 | Invalid input: a malformed case, a missing API key, no repository found. |
-| 3 | No verdict: no case failed, but the model or the engine could not review a case (overload, quota reached, engine missing), or no case is validated yet. |
+| 3 | No verdict: no case failed, but the model or the engine could not review a case (overload, quota reached, engine missing). |
 
 An unavailable model is never a verdict: a review that did not cover every file of the pull
 request is reported as an error, not scored.

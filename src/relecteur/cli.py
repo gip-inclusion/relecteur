@@ -12,7 +12,7 @@ from relecteur.repository import CASES
 from relecteur.review import Review
 from relecteur.scorer import Outcome, Report, evaluate
 
-EXIT_CODES = {Outcome.PASSED: 0, Outcome.FAILED: 1, Outcome.ERROR: 3, Outcome.PENDING: 3}
+EXIT_CODES = {Outcome.PASSED: 0, Outcome.FAILED: 1, Outcome.ERROR: 3}
 INVALID_INPUT = 2
 
 
@@ -20,7 +20,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="relecteur")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    evaluation = commands.add_parser("eval", help="replay the validated cases and give a verdict")
+    evaluation = commands.add_parser("eval", help="replay the cases and give a verdict")
     evaluation.add_argument(
         "cases", type=Path, nargs="?", help=f"a case file or directory (default: {CASES})"
     )
@@ -50,8 +50,7 @@ def _validate(paths: list[Path]) -> int:
     except (InvalidCases, repository.RepositoryError) as error:
         print(error, file=sys.stderr)
         return 1
-    drafts = sum(not case.validated for case in cases)
-    print(f"{len(cases)} valid case(s): {len(cases) - drafts} validated, {drafts} draft")
+    print(f"{len(cases)} valid case(s)")
     return 0
 
 
@@ -70,7 +69,7 @@ def _eval(arguments: argparse.Namespace) -> int:
     )
     with proxy.relaying(model.url) as relay_url:
         relayed = replace(model, url=relay_url)
-        reviews = {case: _review(case, repo, relayed) for case in cases if case.validated}
+        reviews = {case: _review(case, repo, relayed) for case in cases}
     report = evaluate(cases, reviews)
     _print(report)
     return EXIT_CODES[report.outcome]
@@ -102,13 +101,10 @@ def _print(report: Report) -> None:
         for finding in result.findings:
             text = finding.text.splitlines()[0] if finding.text else ""
             print(f"         {finding.path}:{finding.start_line}: {text}")
-    for case in report.pending:
-        print(f"{'PENDING':<8} {case.name}: draft, awaiting human validation")
     counts = {
         outcome: sum(result.outcome is outcome for result in report.results) for outcome in Outcome
     }
     print(
         f"\nverdict: {report.outcome.name} ({counts[Outcome.PASSED]} passed, "
-        f"{counts[Outcome.FAILED]} failed, {counts[Outcome.ERROR]} error(s), "
-        f"{len(report.pending)} pending)"
+        f"{counts[Outcome.FAILED]} failed, {counts[Outcome.ERROR]} error(s))"
     )

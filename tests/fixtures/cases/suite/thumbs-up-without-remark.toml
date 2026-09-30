@@ -1,0 +1,5 @@
+pull_request = "https://forge.example/team/app/pull/2"
+description = "Approved with a thumbs up and no remark: the reviewer should stay silent."
+base = "0dcd15be2f3a3c8a7e0e2f4b8d1c6a5e9f7b3d21"
+head = "43c6ce056a1b2c3d4e5f60718293a4b5c6d7e8f9"
+max_findings = 0
