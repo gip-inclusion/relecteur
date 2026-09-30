@@ -1,52 +1,92 @@
 {
   "status": "complete",
   "llm": {
-    "provider": "custom",
     "model": "deepseek-v4-flash-0731"
   },
-  "message": "Review complete: 0 finding(s) across 1 selected item(s).",
+  "message": "Review complete: 0 finding(s) across 2 selected item(s).",
   "summary": {
-    "files_reviewed": 1,
+    "files_reviewed": 2,
     "comments": 0,
-    "total_tokens": 21877,
-    "input_tokens": 21034,
-    "output_tokens": 843,
-    "elapsed": "38s"
+    "total_tokens": 19069,
+    "input_tokens": 18641,
+    "output_tokens": 428,
+    "elapsed": "23s"
   },
   "tool_calls": {
-    "total": 2,
+    "total": 8,
     "by_tool": {
-      "file_read": 2
+      "code_search": 2,
+      "file_find": 2,
+      "file_read": 4
     },
     "failure": 0,
     "failure_by_tool": {},
     "failure_details": []
   },
-  "comments": null,
-  "session_id": "0b9e4c1a-2d7f-4e33-8c5b-1a6f9d2e7b40",
+  "comments": [],
+  "groups": [
+    {
+      "label": "small change set",
+      "files": [
+        "app/jobs/alert_motif_category_has_changed_job.rb",
+        "app/jobs/alert_user_added_to_another_department_job.rb"
+      ]
+    }
+  ],
+  "session_id": "31102651-c0b9-48ae-9760-24f7b63f45c2",
   "manifest": {
     "schema_version": "ocr.run-manifest/v1",
-    "run_id": "run-2b8e",
+    "run_id": "31102651-c0b9-48ae-9760-24f7b63f45c2",
     "operation": "review",
     "terminal_state": "complete",
-    "repository": {},
+    "repository": {
+      "identity_sha256": "ea559b4e5aaf861e095919b530eafeb10e5a725a2055b34d25a90981576f2a8f"
+    },
     "input": {
       "mode": "range",
+      "requested_from": "b2f7f9a327f098f6ef64d91d13c193353d92ab5d",
+      "requested_head": "38ed0cb00af75b0fd9b533521af64be6dd397be0",
       "resolved_base": "b2f7f9a327f098f6ef64d91d13c193353d92ab5d",
-      "resolved_head": "38ed0cb00af75b0fd9b533521af64be6dd397be0"
+      "resolved_head": "38ed0cb00af75b0fd9b533521af64be6dd397be0",
+      "exact_range": "b2f7f9a327f098f6ef64d91d13c193353d92ab5d..38ed0cb00af75b0fd9b533521af64be6dd397be0",
+      "source_artifact_sha256": "32715b1e693e5cd80f258c1c66a64bbd74b7e51748a9b91b0e9f34fde918232a"
     },
     "execution": {
-      "ocr_version": "1.12.11",
-      "provider": "custom",
-      "model": "deepseek-v4-flash-0731"
+      "ocr_version": "v1.12.11",
+      "model": "deepseek-v4-flash-0731",
+      "configured_concurrency": 8,
+      "rule_config_sha256": "d5e28d02ed5cdf85b533907db24b47f1be02847db764a4ded208dbaf54380ae1",
+      "runtime_config_sha256": "bb21e7514fdb1184d5f8f23a176a55c52f2936f44cf7a00c115b671ec752363e"
     },
     "coverage": {
-      "selected": [{"item_id": "a1", "path": "src/billing.py"}],
-      "completed": [{"item_id": "a1", "path": "src/billing.py"}],
+      "selected": [
+        {
+          "item_id": "0a773e0d6f5a28c41ecd6daad056fb8af0ee1fcb973419ca169fbeddc6ce953c",
+          "path": "app/jobs/alert_user_added_to_another_department_job.rb",
+          "fingerprint": "9e3d98bf223fe09f8548ce954d7d23b5ecba87ba6e278120eabbc23f5612b101"
+        },
+        {
+          "item_id": "5ecbf596972ea4dbb3ef411bcbe8fbd19fda67476e18c38730a6bd924e35a257",
+          "path": "app/jobs/alert_motif_category_has_changed_job.rb",
+          "fingerprint": "3bc444f53864796481490c018bbfcf30401e93d0793a4847a0fa6c964d2be372"
+        }
+      ],
+      "completed": [
+        {
+          "item_id": "0a773e0d6f5a28c41ecd6daad056fb8af0ee1fcb973419ca169fbeddc6ce953c",
+          "path": "app/jobs/alert_user_added_to_another_department_job.rb",
+          "fingerprint": "9e3d98bf223fe09f8548ce954d7d23b5ecba87ba6e278120eabbc23f5612b101"
+        },
+        {
+          "item_id": "5ecbf596972ea4dbb3ef411bcbe8fbd19fda67476e18c38730a6bd924e35a257",
+          "path": "app/jobs/alert_motif_category_has_changed_job.rb",
+          "fingerprint": "3bc444f53864796481490c018bbfcf30401e93d0793a4847a0fa6c964d2be372"
+        }
+      ],
       "reused": [],
       "failed": [],
       "waived": []
     },
-    "elapsed_ms": 38102
+    "elapsed_ms": 22887
   }
 }

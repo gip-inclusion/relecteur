@@ -1,24 +1,21 @@
 {
   "status": "complete",
   "llm": {
-    "provider": "custom",
-    "model": "deepseek-v4-flash-0731"
+    "model": "gpt-oss-120b"
   },
   "message": "Review complete: 2 finding(s) across 2 selected item(s).",
   "summary": {
     "files_reviewed": 2,
     "comments": 2,
-    "total_tokens": 48213,
-    "input_tokens": 45102,
-    "output_tokens": 3111,
-    "elapsed": "1m42s"
+    "total_tokens": 9690,
+    "input_tokens": 9199,
+    "output_tokens": 491,
+    "elapsed": "14s"
   },
   "tool_calls": {
-    "total": 9,
+    "total": 1,
     "by_tool": {
-      "code_comment": 2,
-      "code_search": 3,
-      "file_read": 4
+      "code_comment": 1
     },
     "failure": 0,
     "failure_by_tool": {},
@@ -26,57 +23,89 @@
   },
   "comments": [
     {
-      "path": "src/billing.py",
-      "content": "`total` est calculé avant l'application de la remise : le montant facturé ignore la remise.",
-      "existing_code": "total = sum(line.amount for line in lines)",
-      "suggestion_code": "total = sum(line.amount for line in lines) - discount",
-      "start_line": 42,
-      "end_line": 42,
-      "category": "bug",
-      "severity": "high"
+      "path": "app/jobs/alert_motif_category_has_changed_job.rb",
+      "content": "Consider rescuing potential exceptions from the Slack client to avoid job retries that could spam Slack and hide failures. Adding a rescue block with logging preserves observability after removing Sentry.",
+      "suggestion_code": "def alert_on_slack\n  SlackClient.send_to_private_channel(alert_message)\nrescue StandardError =\u003e e\n  Rails.logger.warn(\"Failed to send Slack alert: #{e.message}\")\n  # Optionally notify monitoring service here\nend",
+      "existing_code": "def alert_on_slack\n  SlackClient.send_to_private_channel(alert_message)\nend",
+      "start_line": 21,
+      "end_line": 23,
+      "category": "maintainability",
+      "severity": "low"
     },
     {
-      "path": "src/invoice.py",
-      "content": "La requête interpole `customer_id` dans le SQL : risque d'injection.",
-      "start_line": 17,
-      "end_line": 21,
-      "category": "security",
-      "severity": "critical"
+      "path": "app/jobs/alert_user_added_to_another_department_job.rb",
+      "content": "Consider rescuing potential exceptions from the Slack client to avoid job retries that could spam Slack and hide failures. Adding a rescue block with logging preserves observability after removing Sentry.",
+      "suggestion_code": "def alert_on_slack\n  SlackClient.send_to_private_channel(alert_message)\nrescue StandardError =\u003e e\n  Rails.logger.warn(\"Failed to send Slack alert: #{e.message}\")\n  # Optionally notify monitoring service here\nend",
+      "existing_code": "def alert_on_slack\n  SlackClient.send_to_private_channel(alert_message)\nend",
+      "start_line": 33,
+      "end_line": 35,
+      "category": "maintainability",
+      "severity": "low"
     }
   ],
-  "session_id": "5f0c8a52-6f1e-4d2b-9a41-7d3e2b1c9e10",
+  "groups": [
+    {
+      "label": "small change set",
+      "files": [
+        "app/jobs/alert_motif_category_has_changed_job.rb",
+        "app/jobs/alert_user_added_to_another_department_job.rb"
+      ]
+    }
+  ],
+  "session_id": "8cb9a833-22bf-4a53-919b-c08f95abc4e5",
   "manifest": {
     "schema_version": "ocr.run-manifest/v1",
-    "run_id": "run-7c1d",
+    "run_id": "8cb9a833-22bf-4a53-919b-c08f95abc4e5",
     "operation": "review",
     "terminal_state": "complete",
-    "repository": {},
+    "repository": {
+      "identity_sha256": "ea559b4e5aaf861e095919b530eafeb10e5a725a2055b34d25a90981576f2a8f"
+    },
     "input": {
       "mode": "range",
       "requested_from": "b2f7f9a327f098f6ef64d91d13c193353d92ab5d",
       "requested_head": "38ed0cb00af75b0fd9b533521af64be6dd397be0",
       "resolved_base": "b2f7f9a327f098f6ef64d91d13c193353d92ab5d",
-      "resolved_head": "38ed0cb00af75b0fd9b533521af64be6dd397be0"
+      "resolved_head": "38ed0cb00af75b0fd9b533521af64be6dd397be0",
+      "exact_range": "b2f7f9a327f098f6ef64d91d13c193353d92ab5d..38ed0cb00af75b0fd9b533521af64be6dd397be0",
+      "source_artifact_sha256": "32715b1e693e5cd80f258c1c66a64bbd74b7e51748a9b91b0e9f34fde918232a"
     },
     "execution": {
-      "ocr_version": "1.12.11",
-      "provider": "custom",
-      "model": "deepseek-v4-flash-0731",
-      "configured_concurrency": 8
+      "ocr_version": "v1.12.11",
+      "model": "gpt-oss-120b",
+      "configured_concurrency": 8,
+      "rule_config_sha256": "d5e28d02ed5cdf85b533907db24b47f1be02847db764a4ded208dbaf54380ae1",
+      "runtime_config_sha256": "8410080f3287453f7cf585cbedb4a5ac035eb3dc28d8c88eaa9e96ec2d4c8edd"
     },
     "coverage": {
       "selected": [
-        {"item_id": "a1", "path": "src/billing.py"},
-        {"item_id": "b2", "path": "src/invoice.py"}
+        {
+          "item_id": "0a773e0d6f5a28c41ecd6daad056fb8af0ee1fcb973419ca169fbeddc6ce953c",
+          "path": "app/jobs/alert_user_added_to_another_department_job.rb",
+          "fingerprint": "9e3d98bf223fe09f8548ce954d7d23b5ecba87ba6e278120eabbc23f5612b101"
+        },
+        {
+          "item_id": "5ecbf596972ea4dbb3ef411bcbe8fbd19fda67476e18c38730a6bd924e35a257",
+          "path": "app/jobs/alert_motif_category_has_changed_job.rb",
+          "fingerprint": "3bc444f53864796481490c018bbfcf30401e93d0793a4847a0fa6c964d2be372"
+        }
       ],
       "completed": [
-        {"item_id": "a1", "path": "src/billing.py"},
-        {"item_id": "b2", "path": "src/invoice.py"}
+        {
+          "item_id": "0a773e0d6f5a28c41ecd6daad056fb8af0ee1fcb973419ca169fbeddc6ce953c",
+          "path": "app/jobs/alert_user_added_to_another_department_job.rb",
+          "fingerprint": "9e3d98bf223fe09f8548ce954d7d23b5ecba87ba6e278120eabbc23f5612b101"
+        },
+        {
+          "item_id": "5ecbf596972ea4dbb3ef411bcbe8fbd19fda67476e18c38730a6bd924e35a257",
+          "path": "app/jobs/alert_motif_category_has_changed_job.rb",
+          "fingerprint": "3bc444f53864796481490c018bbfcf30401e93d0793a4847a0fa6c964d2be372"
+        }
       ],
       "reused": [],
       "failed": [],
       "waived": []
     },
-    "elapsed_ms": 102114
+    "elapsed_ms": 13641
   }
 }

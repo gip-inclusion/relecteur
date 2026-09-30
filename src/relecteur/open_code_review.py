@@ -68,8 +68,7 @@ def parse(stdout: str, stderr: str, returncode: int) -> Review:
     try:
         if output["status"] not in _COMPLETE:
             return Review(error=_incompleteness_error(output))
-        comments = output["comments"] or []  # null when the review made no comment
-        return Review(findings=tuple(_finding(comment) for comment in comments))
+        return Review(findings=tuple(_finding(comment) for comment in output["comments"]))
     except (KeyError, TypeError) as error:
         return Review(error=f"unexpected open-code-review output: {error!r}")
 

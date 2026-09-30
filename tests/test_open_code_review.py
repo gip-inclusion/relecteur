@@ -10,23 +10,29 @@ def parse(output: str, returncode: int = 0, stderr: str = "") -> Review:
     return open_code_review.parse((OUTPUTS / output).read_text(), stderr, returncode)
 
 
+SLACK_REMARK = (
+    "Consider rescuing potential exceptions from the Slack client to avoid job retries that could "
+    "spam Slack and hide failures. Adding a rescue block with logging preserves observability "
+    "after removing Sentry."
+)
+
+
 def test_the_engine_comments_become_normalized_findings() -> None:
     review = parse("with-comments.json")
 
     assert review == Review(
         findings=(
             Finding(
-                path="src/billing.py",
-                start_line=42,
-                end_line=42,
-                text="`total` est calculé avant l'application de la remise : "
-                "le montant facturé ignore la remise.",
+                path="app/jobs/alert_motif_category_has_changed_job.rb",
+                start_line=21,
+                end_line=23,
+                text=SLACK_REMARK,
             ),
             Finding(
-                path="src/invoice.py",
-                start_line=17,
-                end_line=21,
-                text="La requête interpole `customer_id` dans le SQL : risque d'injection.",
+                path="app/jobs/alert_user_added_to_another_department_job.rb",
+                start_line=33,
+                end_line=35,
+                text=SLACK_REMARK,
             ),
         )
     )
