@@ -59,89 +59,80 @@ def _load(path):
         raise InvalidCases([f"{path}: cannot be read ({error.strerror})"]) from error
     except tomllib.TOMLDecodeError as error:
         raise InvalidCases([f"{path}: not valid TOML: {error}"]) from error
-    fields = _Fields(data)
-    case = Case(
+    if problems := _case_problems(data):
+        raise InvalidCases([f"{path}: {problem}" for problem in problems])
+    return Case(
         name=path.stem,
-        pull_request=fields.text("pull_request"),
-        description=fields.text("description"),
-        base=fields.sha("base"),
-        head=fields.sha("head"),
-        max_findings=fields.count("max_findings"),
+        pull_request=data["pull_request"],
+        description=data["description"],
+        base=data["base"],
+        head=data["head"],
+        max_findings=data["max_findings"],
         forbidden_remarks=tuple(
-            ForbiddenRemark(remark.text("path"), remark.line("line"), remark.text("concept"))
-            for remark in fields.tables("forbidden_remarks", label="forbidden remark")
+            ForbiddenRemark(**remark) for remark in data.get("forbidden_remarks", [])
         ),
     )
-    if problems := fields.problems:
-        raise InvalidCases([f"{path}: {problem}" for problem in problems])
-    return case
 
 
-class _Fields:
-    """Reads the fields of a TOML table, collecting every problem rather than stopping at one."""
-
-    def __init__(self, table, label=""):
-        self._table = table
-        self._label = label
-        self._read = set()
-        self._problems = []
-        self._tables = []
-
-    @property
-    def problems(self):
-        """Problems of the fields read so far, of unknown fields, and of the tables read."""
-        unknown = [
-            f"{self._label}unknown field '{name}'" for name in self._table if name not in self._read
-        ]
-        return self._problems + unknown + [problem for t in self._tables for problem in t.problems]
-
-    def text(self, name):
-        return self._get(
-            name, lambda value: isinstance(value, str) and bool(value.strip()), "a non-empty string"
-        )
-
-    def sha(self, name):
-        return self._get(
-            name,
-            lambda value: isinstance(value, str) and bool(_SHA.fullmatch(value)),
-            "a full commit SHA",
-        )
-
-    def count(self, name):
-        return self._get(
-            name, lambda value: _integer(value) and value >= 0, "a non-negative integer"
-        )
-
-    def line(self, name):
-        return self._get(name, lambda value: _integer(value) and value >= 1, "a line number")
-
-    def tables(self, name, label):
-        """Readers of an optional array of tables, each labelled with its number in problems."""
-        self._read.add(name)
-        if name not in self._table:
-            return []
-        tables = self._get(
-            name,
-            lambda value: isinstance(value, list) and all(isinstance(t, dict) for t in value),
-            "an array of tables",
-        )
-        self._tables = [
-            _Fields(table, label=f"{self._label}{label} {number}: ")
-            for number, table in enumerate(tables or [], start=1)
-        ]
-        return self._tables
-
-    def _get(self, name, valid, expectation):
-        self._read.add(name)
-        if name not in self._table:
-            self._problems.append(f"{self._label}missing field '{name}'")
-            return None
-        value = self._table[name]
-        if not valid(value):
-            self._problems.append(f"{self._label}'{name}' must be {expectation}, got {value!r}")
-            return None
-        return value
+def _case_problems(data):
+    problems = _problems(data, _CASE_FIELDS, _OPTIONAL_CASE_FIELDS)
+    remarks = data.get("forbidden_remarks", [])
+    if _is_list_of_tables(remarks):
+        for number, remark in enumerate(remarks, start=1):
+            problems += _problems(remark, _REMARK_FIELDS, {}, label=f"forbidden remark {number}: ")
+    return problems
 
 
-def _integer(value):
+def _problems(data, required, optional, label=""):
+    """Problems of a TOML table against the fields it requires and the ones it allows."""
+    rules = required | optional
+    problems = [f"{label}missing field '{name}'" for name in required if name not in data]
+    for name, value in data.items():
+        if name not in rules:
+            problems.append(f"{label}unknown field '{name}'")
+            continue
+        is_valid, expectation = rules[name]
+        if not is_valid(value):
+            problems.append(f"{label}'{name}' must be {expectation}, got {value!r}")
+    return problems
+
+
+def _is_text(value):
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _is_sha(value):
+    return isinstance(value, str) and bool(_SHA.fullmatch(value))
+
+
+def _is_integer(value):
     return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_count(value):
+    return _is_integer(value) and value >= 0
+
+
+def _is_line_number(value):
+    return _is_integer(value) and value >= 1
+
+
+def _is_list_of_tables(value):
+    return isinstance(value, list) and all(isinstance(item, dict) for item in value)
+
+
+_CASE_FIELDS = {
+    "pull_request": (_is_text, "a non-empty string"),
+    "description": (_is_text, "a non-empty string"),
+    "base": (_is_sha, "a full commit SHA"),
+    "head": (_is_sha, "a full commit SHA"),
+    "max_findings": (_is_count, "a non-negative integer"),
+}
+_OPTIONAL_CASE_FIELDS = {
+    "forbidden_remarks": (_is_list_of_tables, "an array of tables"),
+}
+_REMARK_FIELDS = {
+    "path": (_is_text, "a non-empty string"),
+    "line": (_is_line_number, "a line number"),
+    "concept": (_is_text, "a non-empty string"),
+}
