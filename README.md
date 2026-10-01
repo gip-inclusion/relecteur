@@ -10,7 +10,7 @@ evaluates: that repository only provides case files.
 
 ## Prerequisites
 
-- Python 3.11 or later, and git.
+- Python 3.11 or later, and git 2.41 or later (open-code-review relies on its recent options).
 - The open-code-review CLI, version 1.12.11, which provides the `ocr` command:
 
   ```sh
