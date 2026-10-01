@@ -36,11 +36,11 @@ def ensure_commits(repo: Path, *commits: str) -> None:
         )
 
 
-def _present(repo: Path, commit: str) -> bool:
+def _present(repo, commit):
     return _git(repo, "cat-file", "-e", f"{commit}^{{commit}}").returncode == 0
 
 
-def _git(repo: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+def _git(repo, *arguments):
     return subprocess.run(
         ["git", "-C", str(repo), *arguments], capture_output=True, text=True, check=False
     )

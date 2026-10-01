@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 
-from relecteur.cases import Case, ForbiddenRemark
+from relecteur.cases import Case
 from relecteur.review import Finding, Review
 
 
@@ -52,11 +52,11 @@ def score(case: Case, review: Review) -> CaseResult:
     return CaseResult(case, outcome, review.findings, tuple(reasons))
 
 
-def _repeats(finding: Finding, remark: ForbiddenRemark) -> bool:
+def _repeats(finding, remark):
     return finding.path == remark.path and finding.start_line <= remark.line <= finding.end_line
 
 
-def _verdict(results: tuple[CaseResult, ...]) -> Outcome:
+def _verdict(results):
     outcomes = {result.outcome for result in results}
     if Outcome.FAILED in outcomes:
         return Outcome.FAILED

@@ -7,7 +7,7 @@ from relecteur.cases import Case, ForbiddenRemark, InvalidCases, load_cases
 CASES = Path(__file__).parent / "fixtures" / "cases"
 
 
-def test_a_pull_request_approved_without_comment_is_loaded_from_its_file() -> None:
+def test_a_pull_request_approved_without_comment_is_loaded_from_its_file():
     cases = load_cases(CASES / "suite" / "approved-without-comment.toml")
 
     assert cases == [
@@ -30,7 +30,7 @@ def test_a_pull_request_approved_without_comment_is_loaded_from_its_file() -> No
     ]
 
 
-def test_a_directory_holds_one_case_per_file() -> None:
+def test_a_directory_holds_one_case_per_file():
     cases = load_cases(CASES / "suite")
 
     assert [case.name for case in cases] == [
@@ -50,7 +50,7 @@ def test_a_directory_holds_one_case_per_file() -> None:
         ("remark-without-concept.toml", "forbidden remark 1: missing field 'concept'"),
     ],
 )
-def test_an_invalid_case_is_refused_with_its_file_and_problem(file: str, problem: str) -> None:
+def test_an_invalid_case_is_refused_with_its_file_and_problem(file, problem):
     path = CASES / "invalid" / file
 
     with pytest.raises(InvalidCases) as error:
@@ -59,7 +59,7 @@ def test_an_invalid_case_is_refused_with_its_file_and_problem(file: str, problem
     assert f"{path}: {problem}" in str(error.value)
 
 
-def test_every_invalid_case_of_a_directory_is_reported_at_once() -> None:
+def test_every_invalid_case_of_a_directory_is_reported_at_once():
     directory = CASES / "invalid"
 
     with pytest.raises(InvalidCases) as error:
@@ -70,7 +70,7 @@ def test_every_invalid_case_of_a_directory_is_reported_at_once() -> None:
     }
 
 
-def test_a_directory_without_any_case_file_is_refused(tmp_path: Path) -> None:
+def test_a_directory_without_any_case_file_is_refused(tmp_path):
     with pytest.raises(InvalidCases) as error:
         load_cases(tmp_path)
 

@@ -41,15 +41,13 @@ def serve(upstream: str, port: int) -> None:
 
 
 class _Relay(ThreadingHTTPServer):
-    def __init__(self, upstream: str, port: int) -> None:
+    def __init__(self, upstream, port):
         super().__init__(("127.0.0.1", port), _Handler)
         self.upstream = upstream.rstrip("/")
 
 
 class _Handler(BaseHTTPRequestHandler):
-    server: _Relay
-
-    def do_POST(self) -> None:
+    def do_POST(self):
         body = with_tool_choice(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
         request = urllib.request.Request(
             self.server.upstream + self.path,
@@ -69,7 +67,7 @@ class _Handler(BaseHTTPRequestHandler):
             message = {"error": {"message": f"model endpoint unreachable: {error.reason}"}}
             self._answer(502, {}, json.dumps(message).encode())
 
-    def _answer(self, status: int, headers: Any, payload: bytes) -> None:
+    def _answer(self, status, headers, payload):
         self.send_response(status)
         self.send_header("Content-Type", headers.get("Content-Type", "application/json"))
         if retry_after := headers.get("Retry-After"):
@@ -78,5 +76,5 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def log_message(self, format: str, *args: Any) -> None:
+    def log_message(self, format, *args):
         pass

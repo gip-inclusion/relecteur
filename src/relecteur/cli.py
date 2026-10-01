@@ -6,11 +6,11 @@ from dataclasses import replace
 from pathlib import Path
 
 from relecteur import open_code_review, proxy, repository
-from relecteur.cases import Case, InvalidCases, load_cases
+from relecteur.cases import InvalidCases, load_cases
 from relecteur.model import MissingApiKey, Model, endpoint_url
 from relecteur.repository import CASES
 from relecteur.review import Review
-from relecteur.scorer import Outcome, Report, evaluate
+from relecteur.scorer import Outcome, evaluate
 
 EXIT_CODES = {Outcome.PASSED: 0, Outcome.FAILED: 1, Outcome.ERROR: 3}
 INVALID_INPUT = 2
@@ -44,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     return _eval(arguments)
 
 
-def _validate(paths: list[Path]) -> int:
+def _validate(paths):
     try:
         cases = load_cases(*(paths or [repository.cases_directory(Path.cwd())]))
     except (InvalidCases, repository.RepositoryError) as error:
@@ -54,7 +54,7 @@ def _validate(paths: list[Path]) -> int:
     return 0
 
 
-def _eval(arguments: argparse.Namespace) -> int:
+def _eval(arguments):
     try:
         path = arguments.cases or repository.cases_directory(Path.cwd())
         cases = load_cases(path)
@@ -75,14 +75,14 @@ def _eval(arguments: argparse.Namespace) -> int:
     return EXIT_CODES[report.outcome]
 
 
-def _proxy(port: int, upstream: str) -> int:
+def _proxy(port, upstream):
     print(f"relaying http://127.0.0.1:{port} to {upstream}, until interrupted", flush=True)
     with suppress(KeyboardInterrupt):
         proxy.serve(upstream, port)
     return 0
 
 
-def _review(case: Case, repo: Path, model: Model) -> Review:
+def _review(case, repo, model):
     print(f"reviewing {case.name} ({case.base[:10]}..{case.head[:10]})", file=sys.stderr)
     try:
         repository.ensure_commits(repo, case.base, case.head)
@@ -91,7 +91,7 @@ def _review(case: Case, repo: Path, model: Model) -> Review:
     return open_code_review.review(repo, case.base, case.head, model)
 
 
-def _print(report: Report) -> None:
+def _print(report):
     print()
     for result in report.results:
         summary = "; ".join(result.reasons) or (

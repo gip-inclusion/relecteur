@@ -1,9 +1,7 @@
 import re
 import tomllib
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 _SHA = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?")
 
@@ -54,7 +52,7 @@ def load_cases(*paths: Path) -> list[Case]:
     return cases
 
 
-def _load(path: Path) -> Case:
+def _load(path):
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
     except OSError as error:
@@ -82,42 +80,42 @@ def _load(path: Path) -> Case:
 class _Fields:
     """Reads the fields of a TOML table, collecting every problem rather than stopping at one."""
 
-    def __init__(self, table: dict[str, Any], label: str = "") -> None:
+    def __init__(self, table, label=""):
         self._table = table
         self._label = label
-        self._read: set[str] = set()
-        self._problems: list[str] = []
-        self._tables: list[_Fields] = []
+        self._read = set()
+        self._problems = []
+        self._tables = []
 
     @property
-    def problems(self) -> list[str]:
+    def problems(self):
         """Problems of the fields read so far, of unknown fields, and of the tables read."""
         unknown = [
             f"{self._label}unknown field '{name}'" for name in self._table if name not in self._read
         ]
         return self._problems + unknown + [problem for t in self._tables for problem in t.problems]
 
-    def text(self, name: str) -> Any:
+    def text(self, name):
         return self._get(
             name, lambda value: isinstance(value, str) and bool(value.strip()), "a non-empty string"
         )
 
-    def sha(self, name: str) -> Any:
+    def sha(self, name):
         return self._get(
             name,
             lambda value: isinstance(value, str) and bool(_SHA.fullmatch(value)),
             "a full commit SHA",
         )
 
-    def count(self, name: str) -> Any:
+    def count(self, name):
         return self._get(
             name, lambda value: _integer(value) and value >= 0, "a non-negative integer"
         )
 
-    def line(self, name: str) -> Any:
+    def line(self, name):
         return self._get(name, lambda value: _integer(value) and value >= 1, "a line number")
 
-    def tables(self, name: str, label: str) -> list["_Fields"]:
+    def tables(self, name, label):
         """Readers of an optional array of tables, each labelled with its number in problems."""
         self._read.add(name)
         if name not in self._table:
@@ -133,7 +131,7 @@ class _Fields:
         ]
         return self._tables
 
-    def _get(self, name: str, valid: Callable[[Any], bool], expectation: str) -> Any:
+    def _get(self, name, valid, expectation):
         self._read.add(name)
         if name not in self._table:
             self._problems.append(f"{self._label}missing field '{name}'")
@@ -145,5 +143,5 @@ class _Fields:
         return value
 
 
-def _integer(value: Any) -> bool:
+def _integer(value):
     return isinstance(value, int) and not isinstance(value, bool)

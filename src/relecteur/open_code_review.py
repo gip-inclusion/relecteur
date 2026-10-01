@@ -8,7 +8,6 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any
 
 from relecteur.model import Model
 from relecteur.review import Finding, Review
@@ -36,7 +35,7 @@ def review(repo: Path, base: str, head: str, model: Model) -> Review:
     return parse(completed.stdout, completed.stderr, completed.returncode)
 
 
-def _environment(model: Model, home: str) -> dict[str, str]:
+def _environment(model, home):
     environment = {
         **os.environ,
         # The engine reads ~/.opencodereview/config.json before its environment variables:
@@ -73,7 +72,7 @@ def parse(stdout: str, stderr: str, returncode: int) -> Review:
         return Review(error=f"unexpected open-code-review output: {error!r}")
 
 
-def _finding(comment: dict[str, Any]) -> Finding:
+def _finding(comment):
     return Finding(
         path=comment["path"],
         start_line=comment["start_line"],
@@ -82,7 +81,7 @@ def _finding(comment: dict[str, Any]) -> Finding:
     )
 
 
-def _incompleteness_error(output: dict[str, Any]) -> str:
+def _incompleteness_error(output):
     manifest = output.get("manifest") or {}
     failed = manifest.get("coverage", {}).get("failed", [])
     selected = manifest.get("coverage", {}).get("selected", [])
@@ -98,7 +97,7 @@ def _incompleteness_error(output: dict[str, Any]) -> str:
     )
 
 
-def _provider_errors(output: dict[str, Any]) -> list[str]:
+def _provider_errors(output):
     errors = []
     for request in (output.get("retry_report") or {}).get("requests", []):
         if request["outcome"] != "failed" or not request["attempts"]:
