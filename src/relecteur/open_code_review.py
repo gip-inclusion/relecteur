@@ -14,8 +14,10 @@ from relecteur.review import Finding, Review
 
 INSTALL = "npm install --global @alibaba-group/open-code-review@1.12.11"
 
-# Statuses of a run that covered every file it selected (the last two predate the run manifest).
-_COMPLETE = ("complete", "skipped", "success", "completed_with_warnings")
+# Statuses of a run that covered every file it selected (the last two come without a manifest).
+_COMPLETE = ("complete", "success", "completed_with_warnings")
+# Failure classes of a model or an engine out of reach, rather than of an unfinished review.
+_UNAVAILABLE = {"provider", "timeout", "cancelled"}
 
 
 def review(repo: Path, base: str, head: str, model: Model) -> Review:
@@ -56,8 +58,9 @@ def _environment(model, home):
 def parse(stdout: str, stderr: str, returncode: int) -> Review:
     """Turns the output of `ocr review --format json` into a `Review`.
 
-    A review that did not cover every file is an error rather than a partial list of findings:
-    it cannot tell whether the reviewer would have stayed silent.
+    A review that did not cover every file gives no findings, since it cannot tell whether the
+    reviewer would have stayed silent: it is an error when the model or the engine was out of
+    reach, and an unfinished review otherwise.
     """
     try:
         output = json.loads(stdout)
@@ -65,8 +68,13 @@ def parse(stdout: str, stderr: str, returncode: int) -> Review:
         last_line = stderr.strip().splitlines()[-1] if stderr.strip() else "no output"
         return Review(error=f"open-code-review exited with code {returncode}: {last_line}")
     try:
+        if output["status"] == "skipped":
+            return Review(
+                error="no file reviewed: the engine supports none of the files this pull request "
+                "changes"
+            )
         if output["status"] not in _COMPLETE:
-            return Review(error=_incompleteness_error(output))
+            return _incomplete_review(output)
         return Review(findings=tuple(_finding(comment) for comment in output["comments"]))
     except (KeyError, TypeError) as error:
         return Review(error=f"unexpected open-code-review output: {error!r}")
@@ -81,21 +89,22 @@ def _finding(comment):
     )
 
 
-def _incompleteness_error(output):
+def _incomplete_review(output):
     manifest = output.get("manifest") or {}
     coverage = manifest.get("coverage", {})
     failed = coverage.get("failed", [])
     selected = coverage.get("selected", [])
-    causes = _provider_errors(output) or sorted({item["classification"] for item in failed})
+    classes = {item["classification"] for item in failed}
+    causes = _provider_errors(output) or sorted(classes)
     if run_failure := manifest.get("run_failure"):
+        classes.add(run_failure["classification"])
         causes.append(f"{run_failure['classification']}: {run_failure.get('reason', '')}")
-    unavailable = any(item["classification"] == "provider" for item in failed)
     scope = f" ({len(failed)} of {len(selected)} file(s) not reviewed)" if selected else ""
-    return (
-        ("model unavailable, " if unavailable else "")
-        + f"review incomplete{scope}: "
-        + (", ".join(causes) or output.get("message", output["status"]))
-    )
+    detail = ", ".join(causes) or output.get("message", output["status"])
+    if classes <= _UNAVAILABLE:
+        unavailable = "model unavailable, " if "provider" in classes else ""
+        return Review(error=f"{unavailable}review incomplete{scope}: {detail}")
+    return Review(unfinished=f"review not finished{scope}: {detail}")
 
 
 def _provider_errors(output):

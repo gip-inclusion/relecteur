@@ -39,6 +39,8 @@ def evaluate(cases: Sequence[Case], reviews: Mapping[Case, Review]) -> Report:
 def score(case: Case, review: Review) -> CaseResult:
     if review.error:
         return CaseResult(case, Outcome.ERROR, reasons=(review.error,))
+    if review.unfinished:
+        return CaseResult(case, Outcome.FAILED, reasons=(review.unfinished,))
     reasons = []
     if len(review.findings) > case.max_findings:
         reasons.append(f"{len(review.findings)} finding(s), ceiling is {case.max_findings}")

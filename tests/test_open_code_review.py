@@ -42,8 +42,10 @@ def test_a_silent_review_has_no_finding():
     assert parse("silent.json") == Review()
 
 
-def test_a_pull_request_without_any_supported_file_is_a_silent_review():
-    assert parse("no-supported-files.json") == Review()
+def test_a_pull_request_without_any_reviewed_file_is_an_error_and_not_a_silence():
+    assert parse("no-supported-files.json") == Review(
+        error="no file reviewed: the engine supports none of the files this pull request changes"
+    )
 
 
 def test_a_review_cut_short_by_a_rate_limit_is_an_error_without_findings():
@@ -86,7 +88,7 @@ def test_an_output_of_unexpected_shape_is_an_error_and_not_a_crash():
     assert review.error.startswith("unexpected open-code-review output")
 
 
-def test_a_real_review_whose_model_never_finished_is_an_error():
+def test_a_real_review_whose_model_never_finished_is_unfinished_and_not_unavailable():
     review = parse("tool-rounds-exhausted.json", returncode=1)
 
-    assert review == Review(error="review incomplete (2 of 2 file(s) not reviewed): budget")
+    assert review == Review(unfinished="review not finished (2 of 2 file(s) not reviewed): budget")

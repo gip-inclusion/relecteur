@@ -93,6 +93,15 @@ UNAVAILABLE = Review(error="model unavailable: overloaded (HTTP 503)")
 ANOTHER_APPROVED_PULL_REQUEST = replace(APPROVED_PULL_REQUEST, name="pr-3-approved-without-comment")
 
 
+def test_a_reviewer_that_did_not_finish_its_review_fails_the_case():
+    review = Review(unfinished="review not finished (2 of 2 file(s) not reviewed): budget")
+
+    result = score(APPROVED_PULL_REQUEST, review)
+
+    assert result.outcome is Outcome.FAILED
+    assert result.reasons == ("review not finished (2 of 2 file(s) not reviewed): budget",)
+
+
 def test_an_error_without_any_failure_makes_the_verdict_an_error_and_not_a_pass():
     reviews = {APPROVED_PULL_REQUEST: Review(), ANOTHER_APPROVED_PULL_REQUEST: UNAVAILABLE}
 

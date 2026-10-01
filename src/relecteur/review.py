@@ -13,7 +13,12 @@ class Finding:
 
 @dataclass(frozen=True)
 class Review:
-    """What the reviewer said on a pull request, or why it could not say anything."""
+    """What the reviewer said on a pull request.
+
+    `error` tells why the model or the engine could not review it: that is no verdict on the
+    reviewer. `unfinished` tells why the reviewer, once reached, did not finish its review.
+    """
 
     findings: tuple[Finding, ...] = ()
     error: str | None = None
+    unfinished: str | None = None

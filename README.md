@@ -89,12 +89,15 @@ exits with:
 | Code | Meaning |
 | --- | --- |
 | 0 | Every case passed. |
-| 1 | At least one case failed. |
+| 1 | At least one case failed: the reviewer made too many remarks, repeated a forbidden one, or did not finish its review. |
 | 2 | Invalid input: a malformed case, a missing API key, no repository found. |
-| 3 | No verdict: no case failed, but the model or the engine could not review a case (overload, quota reached, engine missing). |
+| 3 | No verdict: no case failed, but a case could not be reviewed: model unavailable (overload, quota reached, timeout), engine missing, or a pull request with no file the engine reviews. |
 
-An unavailable model is never a verdict: a review that did not cover every file of the pull
-request is reported as an error, not scored.
+A review that did not cover every file of the pull request is never scored on its findings.
+When the model or the engine was out of reach, it is an error and no verdict. When the reviewer
+was reached but did not finish, for instance by running out of rounds, the case fails: a broken
+reviewer setup must not hide behind "no verdict". A pull request with no file the engine
+reviews tests nothing, and gives no verdict either.
 
 ## Model
 
