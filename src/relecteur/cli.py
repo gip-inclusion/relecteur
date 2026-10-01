@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+from collections import Counter
 from contextlib import suppress
 from dataclasses import replace
 from pathlib import Path
@@ -20,21 +21,23 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="relecteur")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    evaluation = commands.add_parser("eval", help="replay the cases and give a verdict")
-    evaluation.add_argument(
+    eval_command = commands.add_parser("eval", help="replay the cases and give a verdict")
+    eval_command.add_argument(
         "cases", type=Path, nargs="?", help=f"a case file or directory (default: {CASES})"
     )
-    evaluation.add_argument("--model", help="model name (default: $RELECTEUR_MODEL, then Albert's)")
-    evaluation.add_argument("--model-url", help="OpenAI-compatible endpoint (default: Albert)")
+    eval_command.add_argument(
+        "--model", help="model name (default: $RELECTEUR_MODEL, then Albert's)"
+    )
+    eval_command.add_argument("--model-url", help="OpenAI-compatible endpoint (default: Albert)")
 
-    validate = commands.add_parser("validate", help="check the format of case files")
-    validate.add_argument(
+    validate_command = commands.add_parser("validate", help="check the format of case files")
+    validate_command.add_argument(
         "paths", type=Path, nargs="*", help=f"case files or directories (default: {CASES})"
     )
 
-    relay = commands.add_parser("proxy", help="relay the model endpoint for a direct engine run")
-    relay.add_argument("--port", type=int, default=8765, help="local port (default: 8765)")
-    relay.add_argument("--model-url", help="OpenAI-compatible endpoint (default: Albert)")
+    proxy_command = commands.add_parser("proxy", help="relay the model endpoint for an engine run")
+    proxy_command.add_argument("--port", type=int, default=8765, help="local port (default: 8765)")
+    proxy_command.add_argument("--model-url", help="OpenAI-compatible endpoint (default: Albert)")
 
     arguments = parser.parse_args(argv)
     if arguments.command == "validate":
@@ -68,8 +71,7 @@ def _eval(arguments):
         flush=True,
     )
     with proxy.relaying(model.url) as relay_url:
-        relayed = replace(model, url=relay_url)
-        reviews = {case: _review(case, repo, relayed) for case in cases}
+        reviews = {case: _review(case, repo, replace(model, url=relay_url)) for case in cases}
     report = evaluate(cases, reviews)
     _print(report)
     return EXIT_CODES[report.outcome]
@@ -101,9 +103,7 @@ def _print(report):
         for finding in result.findings:
             text = finding.text.splitlines()[0] if finding.text else ""
             print(f"         {finding.path}:{finding.start_line}: {text}")
-    counts = {
-        outcome: sum(result.outcome is outcome for result in report.results) for outcome in Outcome
-    }
+    counts = Counter(result.outcome for result in report.results)
     print(
         f"\nverdict: {report.outcome.name} ({counts[Outcome.PASSED]} passed, "
         f"{counts[Outcome.FAILED]} failed, {counts[Outcome.ERROR]} error(s))"

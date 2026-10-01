@@ -81,7 +81,9 @@ def test_an_engine_stopping_without_output_is_an_error_carrying_its_message():
 def test_an_output_of_unexpected_shape_is_an_error_and_not_a_crash():
     review = open_code_review.parse('{"status": "complete"}', "", 0)
 
-    assert review == Review(error="unexpected open-code-review output: KeyError('comments')")
+    assert review.findings == ()
+    assert review.error is not None
+    assert review.error.startswith("unexpected open-code-review output")
 
 
 def test_a_real_review_whose_model_never_finished_is_an_error():

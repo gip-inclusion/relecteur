@@ -9,7 +9,6 @@ class RepositoryError(Exception):
 
 
 def root(path: Path) -> Path:
-    """The root of the git repository holding `path`."""
     completed = _git(path if path.is_dir() else path.parent, "rev-parse", "--show-toplevel")
     if completed.returncode != 0:
         raise RepositoryError(f"{path} is not inside a git repository")
@@ -17,7 +16,6 @@ def root(path: Path) -> Path:
 
 
 def cases_directory(path: Path) -> Path:
-    """The `.relecteur/cases` directory at the root of the git repository holding `path`."""
     cases = root(path) / CASES
     if not cases.is_dir():
         raise RepositoryError(f"{cases} does not exist: create it, with one file per case")

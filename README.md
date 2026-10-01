@@ -144,5 +144,6 @@ python3 -m venv .venv
 ```
 
 The test suite needs no application repository, no network access and no model: tests
-that try to open a connection fail. Only the scorer, the case loader and the engine adapter
-are tested, the adapter against frozen engine outputs.
+that try to open a connection fail. The tests cover the scorer, the case loader, the engine
+adapter, against engine outputs recorded or written from its source, and the relay's rule for
+`tool_choice`. Running git, the engine and the relay itself is checked by real runs.

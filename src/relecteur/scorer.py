@@ -32,7 +32,6 @@ class Report:
 
 
 def evaluate(cases: Sequence[Case], reviews: Mapping[Case, Review]) -> Report:
-    """Scores every case against its review, and gives the verdict of the whole."""
     results = tuple(score(case, reviews[case]) for case in cases)
     return Report(results, _verdict(results))
 
@@ -48,8 +47,9 @@ def score(case: Case, review: Review) -> CaseResult:
         for remark in case.forbidden_remarks
         if any(_repeats(finding, remark) for finding in review.findings)
     ]
-    outcome = Outcome.FAILED if reasons else Outcome.PASSED
-    return CaseResult(case, outcome, review.findings, tuple(reasons))
+    return CaseResult(
+        case, Outcome.FAILED if reasons else Outcome.PASSED, review.findings, tuple(reasons)
+    )
 
 
 def _repeats(finding, remark):

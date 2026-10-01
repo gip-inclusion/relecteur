@@ -35,7 +35,6 @@ def relaying(upstream: str) -> Iterator[str]:
 
 
 def serve(upstream: str, port: int) -> None:
-    """Relays to `upstream` from `port` until interrupted."""
     with _Relay(upstream, port) as relay:
         relay.serve_forever()
 

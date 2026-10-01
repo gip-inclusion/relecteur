@@ -3,7 +3,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-_SHA = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?")
+_SHA = re.compile(r"[0-9a-f]{40}")
 
 
 @dataclass(frozen=True)
@@ -84,7 +84,6 @@ def _case_problems(data):
 
 
 def _problems(data, required, optional, label=""):
-    """Problems of a TOML table against the fields it requires and the ones it allows."""
     rules = required | optional
     problems = [f"{label}missing field '{name}'" for name in required if name not in data]
     for name, value in data.items():

@@ -83,8 +83,9 @@ def _finding(comment):
 
 def _incompleteness_error(output):
     manifest = output.get("manifest") or {}
-    failed = manifest.get("coverage", {}).get("failed", [])
-    selected = manifest.get("coverage", {}).get("selected", [])
+    coverage = manifest.get("coverage", {})
+    failed = coverage.get("failed", [])
+    selected = coverage.get("selected", [])
     causes = _provider_errors(output) or sorted({item["classification"] for item in failed})
     if run_failure := manifest.get("run_failure"):
         causes.append(f"{run_failure['classification']}: {run_failure.get('reason', '')}")
