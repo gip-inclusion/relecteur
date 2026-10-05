@@ -12,12 +12,12 @@ from pathlib import Path
 from relecteur.model import Model
 from relecteur.review import Finding, Review
 
-INSTALL = "npm install --global @alibaba-group/open-code-review@1.12.11"
+_INSTALL_COMMAND = "npm install --global @alibaba-group/open-code-review@1.12.11"
 
 # Statuses of a run that covered every file it selected (the last two come without a manifest).
-_COMPLETE = ("complete", "success", "completed_with_warnings")
+_COMPLETE = frozenset({"complete", "success", "completed_with_warnings"})
 # Failure classes of a model or an engine out of reach, rather than of an unfinished review.
-_UNAVAILABLE = {"provider", "timeout", "cancelled"}
+_UNAVAILABLE = frozenset({"provider", "timeout", "cancelled"})
 
 
 def review(repo: Path, base: str, head: str, model: Model) -> Review:
@@ -33,7 +33,7 @@ def review(repo: Path, base: str, head: str, model: Model) -> Review:
                 env=_environment(model, home),
             )
         except FileNotFoundError:
-            return Review(error=f"open-code-review is not installed (ocr): {INSTALL}")
+            return Review(error=f"open-code-review is not installed (ocr): {_INSTALL_COMMAND}")
     return parse(completed.stdout, completed.stderr, completed.returncode)
 
 
