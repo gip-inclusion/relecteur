@@ -33,7 +33,7 @@ def main(argv: list[str] | None = None) -> int:
         "--judge",
         choices=sorted(judges.DEFAULT_MODELS),
         default="albert",
-        help="judge of expected defects (default: albert, which asks the model endpoint)",
+        help="judge of expected defects (default: albert)",
     )
     eval_command.add_argument(
         "--judge-model",

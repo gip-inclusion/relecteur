@@ -8,12 +8,12 @@ import math
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
 
 from relecteur.cases import ExpectedDefect
-from relecteur.model import MissingApiKey, Model
+from relecteur.model import DEFAULT_URL, MissingApiKey, Model
 from relecteur.review import Finding
 from relecteur.scorer import Judge, JudgeUnavailable
 
@@ -24,20 +24,32 @@ _QUESTION = "Does the review remark point out the expected defect, even in other
 
 
 def from_environment(
-    environ: Mapping[str, str], name: str, model: str | None, endpoint: Model
+    environ: Mapping[str, str], name: str, model: str | None, reviewer: Model
 ) -> Judge:
     """The judge called `name`, asking `model` or the judge's default one.
 
-    The albert judge asks a model of the endpoint the reviewer uses, Albert unless configured
-    otherwise; the jev judge reads its API key from TYPESAFE_API_KEY.
+    Whatever model reviews, the albert judge asks Albert, so that reviewers are compared under the
+    same judge. Its key is RELECTEUR_JUDGE_API_KEY, or the reviewer's when Albert serves the
+    reviewer too. The jev judge reads its key from TYPESAFE_API_KEY.
     """
     model = model or DEFAULT_MODELS[name]
     if name == "albert":
-        return AlbertJudge(replace(endpoint, name=model))
+        return AlbertJudge(Model(DEFAULT_URL, model, _albert_api_key(environ, reviewer)))
     api_key = environ.get("TYPESAFE_API_KEY", "")
     if not api_key:
         raise MissingApiKey(f"TYPESAFE_API_KEY is not set: it holds the API key of {_JEV_URL}")
     return JevJudge(model, api_key)
+
+
+def _albert_api_key(environ, reviewer):
+    if api_key := environ.get("RELECTEUR_JUDGE_API_KEY"):
+        return api_key
+    if reviewer.url == DEFAULT_URL:
+        return reviewer.api_key
+    raise MissingApiKey(
+        "RELECTEUR_JUDGE_API_KEY is not set: it holds the Albert API key of the albert judge, "
+        f"needed since the reviewer is served by {reviewer.url}"
+    )
 
 
 @dataclass(frozen=True)

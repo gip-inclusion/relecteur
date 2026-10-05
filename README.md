@@ -143,15 +143,15 @@ the probability that the finding describes the defect, which is found from a thr
 
 | Option | Default | |
 | --- | --- | --- |
-| `--judge` | `albert` | `albert` asks a model of the model endpoint (see below); `jev` asks [Jev](https://typesafe.ai), TypeSafe's judgment model. |
+| `--judge` | `albert` | `albert` asks a model of Albert; `jev` asks [Jev](https://typesafe.ai), TypeSafe's judgment model. |
 | `--judge-model` | `deepseek-v4-flash-0731` for `albert`, `jev-latest` for `jev` | |
 | `--judge-threshold` | `0.5` | Probability from which a defect is found. |
 | `--line-tolerance` | `5` | Lines between a finding and a defect for the judge to be asked. |
 
 The `albert` judge asks for a one-word answer, yes or no, and reads the probability of yes in
-the logprobs of that word: the endpoint must return logprobs, as Albert does. Its default model
-stays the same whatever model reviews, so that reviewers are compared under the same judge; when
-`--model-url` points to another endpoint than Albert, pass a `--judge-model` it serves. The `jev` judge's
+the logprobs of that word. It asks Albert whatever model reviews, so that reviewers are compared
+under the same judge: its API key is `RELECTEUR_JUDGE_API_KEY`, or `RELECTEUR_API_KEY` when
+Albert serves the reviewer too. The `jev` judge's
 request follows TypeSafe's System One API as RubyLLM implements it; it has not been run yet.
 
 A judge that cannot answer, model unavailable or answer unreadable, makes the case an error,
@@ -168,6 +168,7 @@ environment, then falls back to Albert.
 | `--model-url` | `RELECTEUR_MODEL_URL` | `https://albert.api.etalab.gouv.fr/v1` |
 | `--model` | `RELECTEUR_MODEL` | `deepseek-v4-flash-0731` |
 | | `RELECTEUR_API_KEY` | none, required |
+| | `RELECTEUR_JUDGE_API_KEY` | `RELECTEUR_API_KEY` when the reviewer is served by Albert; an Albert key otherwise, for the `albert` judge |
 
 The engine runs with an empty home directory, so that a personal open-code-review
 configuration never overrides the model chosen here; git keeps the global configuration of
