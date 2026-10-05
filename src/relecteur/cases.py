@@ -14,6 +14,20 @@ class ForbiddenRemark:
 
 
 @dataclass(frozen=True)
+class ExpectedDefect:
+    """A defect the pull request introduced, which the `fix` commit corrected afterwards.
+
+    `escaped_review` tells whether the human review of the pull request let it through.
+    """
+
+    path: str
+    line: int
+    concept: str
+    fix: str
+    escaped_review: bool
+
+
+@dataclass(frozen=True)
 class Case:
     """A past pull request, frozen by its base and head commits, and what the reviewer should do."""
 
@@ -24,6 +38,7 @@ class Case:
     head: str
     max_findings: int
     forbidden_remarks: tuple[ForbiddenRemark, ...] = ()
+    expected_defects: tuple[ExpectedDefect, ...] = ()
 
 
 class InvalidCases(Exception):
@@ -71,15 +86,24 @@ def _load(path):
         forbidden_remarks=tuple(
             ForbiddenRemark(**remark) for remark in data.get("forbidden_remarks", [])
         ),
+        expected_defects=tuple(
+            ExpectedDefect(**defect) for defect in data.get("expected_defects", [])
+        ),
     )
 
 
 def _case_problems(data):
     problems = _problems(data, _CASE_FIELDS, _OPTIONAL_CASE_FIELDS)
-    remarks = data.get("forbidden_remarks", [])
-    if _is_list_of_tables(remarks):
-        for number, remark in enumerate(remarks, start=1):
-            problems += _problems(remark, _REMARK_FIELDS, {}, label=f"forbidden remark {number}: ")
+    for field, label, rules in _TABLES:
+        items = data.get(field, [])
+        if _is_list_of_tables(items):
+            for number, item in enumerate(items, start=1):
+                problems += _problems(item, rules, {}, label=f"{label} {number}: ")
+    defects, ceiling = data.get("expected_defects", []), data.get("max_findings")
+    if isinstance(defects, list) and _is_count(ceiling) and ceiling < len(defects):
+        problems.append(
+            f"'max_findings' must allow the {len(defects)} expected defect(s), got {ceiling}"
+        )
     return problems
 
 
@@ -116,6 +140,10 @@ def _is_line_number(value):
     return _is_integer(value) and value >= 1
 
 
+def _is_boolean(value):
+    return isinstance(value, bool)
+
+
 def _is_list_of_tables(value):
     return isinstance(value, list) and all(isinstance(item, dict) for item in value)
 
@@ -129,9 +157,19 @@ _CASE_FIELDS = {
 }
 _OPTIONAL_CASE_FIELDS = {
     "forbidden_remarks": (_is_list_of_tables, "an array of tables"),
+    "expected_defects": (_is_list_of_tables, "an array of tables"),
 }
 _REMARK_FIELDS = {
     "path": (_is_text, "a non-empty string"),
     "line": (_is_line_number, "a line number"),
     "concept": (_is_text, "a non-empty string"),
 }
+_DEFECT_FIELDS = {
+    **_REMARK_FIELDS,
+    "fix": (_is_sha, "a full commit SHA"),
+    "escaped_review": (_is_boolean, "true or false"),
+}
+_TABLES = (
+    ("forbidden_remarks", "forbidden remark", _REMARK_FIELDS),
+    ("expected_defects", "expected defect", _DEFECT_FIELDS),
+)

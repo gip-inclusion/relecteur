@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from relecteur.cases import Case, ForbiddenRemark, InvalidCases, load_cases
+from relecteur.cases import Case, ExpectedDefect, ForbiddenRemark, InvalidCases, load_cases
 
 CASES = Path(__file__).parent / "fixtures" / "cases"
 
@@ -30,11 +30,26 @@ def test_a_pull_request_approved_without_comment_is_loaded_from_its_file():
     ]
 
 
+def test_a_pull_request_fixed_after_its_approval_is_loaded_with_its_expected_defect():
+    [case] = load_cases(CASES / "suite" / "fixed-after-approval.toml")
+
+    assert case.expected_defects == (
+        ExpectedDefect(
+            path="src/billing.py",
+            line=42,
+            concept="Applies the discount a second time when the invoice total is recomputed.",
+            fix="02e2ac918dae906395d05b502d386fcb4bfe20a8",
+            escaped_review=True,
+        ),
+    )
+
+
 def test_a_directory_holds_one_case_per_file():
     cases = load_cases(CASES / "suite")
 
     assert [case.name for case in cases] == [
         "approved-without-comment",
+        "fixed-after-approval",
         "thumbs-up-without-remark",
     ]
 
@@ -48,6 +63,14 @@ def test_a_directory_holds_one_case_per_file():
         ("negative-ceiling.toml", "'max_findings' must be a non-negative integer, got -1"),
         ("not-toml.toml", "not valid TOML: "),
         ("remark-without-concept.toml", "forbidden remark 1: missing field 'concept'"),
+        (
+            "escaped-review-in-words.toml",
+            "expected defect 1: 'escaped_review' must be true or false, got 'yes'",
+        ),
+        (
+            "ceiling-below-defects.toml",
+            "'max_findings' must allow the 1 expected defect(s), got 0",
+        ),
     ],
 )
 def test_an_invalid_case_is_refused_with_its_file_and_problem(file, problem):

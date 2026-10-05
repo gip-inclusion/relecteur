@@ -1,0 +1,109 @@
+{
+  "id": "chatcmpl-8eb36f86125713b4",
+  "object": "chat.completion",
+  "created": 1791231751,
+  "model": "deepseek-v4-flash-0731",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "no",
+        "refusal": null,
+        "annotations": null,
+        "audio": null,
+        "function_call": null,
+        "reasoning": null
+      },
+      "logprobs": {
+        "content": [
+          {
+            "token": "no",
+            "logprob": -0.000300958170555532,
+            "bytes": [
+              110,
+              111
+            ],
+            "top_logprobs": [
+              {
+                "token": "no",
+                "logprob": -0.000300958170555532,
+                "bytes": [
+                  110,
+                  111
+                ]
+              },
+              {
+                "token": "yes",
+                "logprob": -8.500301361083984,
+                "bytes": [
+                  121,
+                  101,
+                  115
+                ]
+              },
+              {
+                "token": "No",
+                "logprob": -9.250301361083984,
+                "bytes": [
+                  78,
+                  111
+                ]
+              },
+              {
+                "token": " no",
+                "logprob": -13.625301361083984,
+                "bytes": [
+                  32,
+                  110,
+                  111
+                ]
+              },
+              {
+                "token": "Yes",
+                "logprob": -15.875301361083984,
+                "bytes": [
+                  89,
+                  101,
+                  115
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "finish_reason": "length",
+      "stop_reason": null,
+      "token_ids": null,
+      "routed_experts": null
+    }
+  ],
+  "service_tier": null,
+  "system_fingerprint": "vllm-0.25.1-dp8-ep-761ffaff",
+  "usage": {
+    "prompt_tokens": 132,
+    "completion_tokens": 1,
+    "total_tokens": 133,
+    "cost": 0.0,
+    "carbon": {
+      "kWh": {
+        "min": 0.00013422329208139818,
+        "max": 0.00013422329208139818
+      },
+      "kgCO2eq": {
+        "min": 8.121049753271678e-06,
+        "max": 8.121049753271678e-06
+      }
+    },
+    "impacts": {
+      "kWh": 0.00013422329208139818,
+      "kgCO2eq": 8.121049753271678e-06
+    },
+    "requests": 1
+  },
+  "prompt_logprobs": null,
+  "prompt_token_ids": null,
+  "prompt_text": null,
+  "kv_transfer_params": null,
+  "metrics": null
+}
