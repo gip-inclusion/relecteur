@@ -64,7 +64,7 @@ concept = "Asks to rename `total` although the name matches the invoice vocabula
 | --- | --- |
 | `pull_request` | Link or identifier of the pull request, for the humans reading the case. |
 | `description` | What the reviewer is expected to do, and why. Read by humans only: it is never shown to the reviewer. |
-| `base`, `head` | Full SHAs of the pull request's base and head commits. |
+| `base`, `head` | Full SHAs of the code a human reviewed: the pull request's base and head commits, or, for a defect a reviewer caught, the commit they commented on as `head`. |
 | `max_findings` | The case fails as soon as the reviewer makes more findings than this. |
 | `forbidden_remarks` | Optional. Remarks the reviewer must not make again: a finding covering `line` of `path` fails the case, whatever `max_findings` allows. |
 | `expected_defects` | Optional. Defects the reviewer should flag, which makes the case a defect case: see below. |
@@ -88,19 +88,32 @@ escaped_review = true
 
 | Field | Meaning |
 | --- | --- |
-| `path`, `line` | Where the defect is, in the pull request's head commit. |
+| `path`, `line` | Where the defect is, in the `head` commit. |
 | `concept` | The defect, in plain words: the judge compares it with the text of the findings. |
 | `fix` | Full SHA of the commit that fixed the defect. |
 | `escaped_review` | Whether the human review of the pull request let the defect through, so that the report tells what the reviewer adds to the humans rather than how much it resembles them. |
 
 `max_findings` must leave room for every expected defect.
 
-A case can be written by hand or drafted by an agent. Either way it counts once it is merged:
-add cases through a pull request, whose review is where a human vouches for them.
+A case can be written by hand or drafted by an agent, with the skill below. Either way it counts
+once it is merged: add cases through a pull request, whose review is where a human vouches for
+them.
 
 The harness replays a pull request from its recorded commits, with git alone, whatever
 the current state of branches: when a commit is missing locally, as with the head of a
 squash-merged pull request, it is fetched from the `origin` remote.
+
+### Drafting cases with an agent
+
+[`skills/build-eval-cases/SKILL.md`](skills/build-eval-cases/SKILL.md) has an agent draft cases
+from the history of a repository on GitHub: silence cases from pull requests approved without any
+comment, defect cases from fix commits. The agent checks its cases with `relecteur validate` and
+proposes them in a pull request, which it never merges.
+
+A skill is a Markdown file, which any agent can follow. With Claude Code, copy the
+`build-eval-cases` folder into the repository's `.claude/skills` directory, then run
+`/build-eval-cases`, followed by the number of cases to draft (5 by default). With another agent,
+ask it to read the file and follow it.
 
 ## Usage
 
