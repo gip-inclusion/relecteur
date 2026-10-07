@@ -20,9 +20,13 @@ _COMPLETE = frozenset({"complete", "success", "completed_with_warnings"})
 _UNAVAILABLE = frozenset({"provider", "timeout", "cancelled"})
 
 
-def review(repo: Path, base: str, head: str, model: Model) -> Review:
-    """Reviews `head` against its merge base with `base`, as the pull request was opened."""
+def review(repo: Path, base: str, head: str, model: Model, concurrency: int) -> Review:
+    """Reviews `head` against its merge base with `base`, as the pull request was opened.
+
+    The engine reviews up to `concurrency` groups of files at once, each with its own requests.
+    """
     command = ["ocr", "review", "--repo", str(repo), "--from", base, "--to", head]
+    command += ["--concurrency", str(concurrency)]
     with tempfile.TemporaryDirectory() as home:
         try:
             completed = subprocess.run(

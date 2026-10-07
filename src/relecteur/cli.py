@@ -15,6 +15,7 @@ from relecteur.scorer import DEFAULT_LINE_TOLERANCE, DEFAULT_THRESHOLD, Matching
 
 EXIT_CODES = {Outcome.PASSED: 0, Outcome.FAILED: 1, Outcome.ERROR: 3}
 INVALID_INPUT = 2
+DEFAULT_CONCURRENCY = 2
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -53,6 +54,14 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_LINE_TOLERANCE,
         help="lines between a finding and an expected defect for the judge to be asked "
         f"(default: {DEFAULT_LINE_TOLERANCE})",
+    )
+
+    eval_command.add_argument(
+        "--concurrency",
+        type=_concurrency,
+        default=DEFAULT_CONCURRENCY,
+        help="groups of files the engine reviews at once, each sending its own requests to the "
+        f"model (default: {DEFAULT_CONCURRENCY})",
     )
 
     validate_command = commands.add_parser("validate", help="check the format of case files")
@@ -97,7 +106,10 @@ def _eval(arguments):
         flush=True,
     )
     with proxy.relaying(model.url) as relay_url:
-        reviews = {case: _review(case, repo, replace(model, url=relay_url)) for case in cases}
+        reviews = {
+            case: _review(case, repo, replace(model, url=relay_url), arguments.concurrency)
+            for case in cases
+        }
     report = evaluate(
         cases, reviews, Matching(judge, arguments.line_tolerance, arguments.judge_threshold)
     )
@@ -112,19 +124,26 @@ def _proxy(port, upstream):
     return 0
 
 
-def _review(case, repo, model):
+def _review(case, repo, model, concurrency):
     print(f"reviewing {case.name} ({case.base[:10]}..{case.head[:10]})", file=sys.stderr)
     try:
         repository.ensure_commits(repo, case.base, case.head)
     except repository.RepositoryError as error:
         return Review(error=str(error))
-    return open_code_review.review(repo, case.base, case.head, model)
+    return open_code_review.review(repo, case.base, case.head, model, concurrency)
 
 
 def _probability(text):
     value = float(text)
     if not 0 <= value <= 1:
         raise argparse.ArgumentTypeError(f"must be between 0 and 1, got {text}")
+    return value
+
+
+def _concurrency(text):
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be at least 1, got {text}")
     return value
 
 
