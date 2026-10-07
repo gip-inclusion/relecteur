@@ -107,7 +107,8 @@ squash-merged pull request, it is fetched from the `origin` remote.
 
 [`skills/build-eval-cases/SKILL.md`](skills/build-eval-cases/SKILL.md) has an agent draft cases
 from the history of a repository on GitHub: silence cases from pull requests approved without any
-comment, defect cases from fix commits. The agent checks its cases with `relecteur validate`,
+comment, defect cases from fix commits and from review comments the author acted on, about a
+defect or a written convention. The agent checks its cases with `relecteur validate`,
 and leaves them uncommitted with the evidence for each one: the person who ran it reviews them,
 keeps those that hold, and adds them through a pull request.
 

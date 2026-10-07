@@ -137,8 +137,9 @@ gh api repos/<owner>/<repo>/issues/<number>/comments   # conversation
 
 ## Defect cases
 
-A defect case rests on a defect that existed and was fixed. It comes from one of two sources;
-draft mostly from the first, which measures what the reviewer adds to the humans.
+A defect case rests on a defect that existed and was fixed: wrong behaviour, or a breach of a
+convention the repository has written down. It comes from one of two sources; draft mostly from
+the first, which measures what the reviewer adds to the humans.
 
 ### A defect that escaped review
 
@@ -201,14 +202,19 @@ most often: verify each link with git or the API rather than infer it from commi
    and `line` is the number of the faulty line in `git show <head>:<path>`, which often differs
    from its number in the fix's parent.
 
-### A defect caught in review
+### A defect or a convention caught in review
 
-A human reviewer's comment on a line pointed out a defect, and the author fixed it with a later
-commit of the same pull request.
+A human reviewer's comment on a line pointed out a defect, or asked for what a convention written
+in the repository prescribes (in its `AGENTS.md`, `CONTRIBUTING.md` or the like), and the author
+changed the code accordingly in a later commit of the same pull request. Keep only comments that
+wrong behaviour or a written convention backs: a remark of taste, on naming or design, is one the
+reviewer is asked not to make.
 
 1. Among reviewed pull requests, read the comments on lines (`pulls/<number>/comments`) for one
-   that points out wrong behaviour, followed by a commit of the pull request
-   (`gh api repos/<owner>/<repo>/pulls/<number>/commits`) that changes the commented lines.
+   that points out wrong behaviour or asks for what a written convention prescribes, followed by
+   a commit of the pull request (`gh api repos/<owner>/<repo>/pulls/<number>/commits`) that
+   changes the commented lines as asked. A comment whose `line` is `null` sits on code a later
+   commit changed: those comments are where to look first.
 2. Freeze the code the human reviewer read, before the fix: `head` is the comment's
    `original_commit_id`, `base` the pull request's `base.sha`, `path` and `line` the comment's
    `path` and `original_line`, `fix` the link to the commit that corrected it, and
@@ -222,7 +228,10 @@ A judge reads one of the reviewer's findings and the concept, and answers whethe
 the same defect. Write the defect as it shows at `head`: what goes wrong, in which situation, and
 through which code, in one or two sentences that name the function or condition involved. The
 concept of the defect case above is the target: it describes the defect, and leaves how it was
-fixed to the change `fix` links to.
+fixed to the change `fix` links to. For a convention, the concept names the rule and how the code
+breaks it: "The partial reads @organisation and @category_configuration instead of receiving them
+as locals, against the convention that ERB partials receive their data through locals passed to
+render."
 
 ## Check every case
 
