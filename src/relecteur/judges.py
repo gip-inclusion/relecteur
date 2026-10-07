@@ -20,7 +20,11 @@ from relecteur.scorer import Judge, JudgeUnavailable
 DEFAULT_MODELS = MappingProxyType({"albert": "deepseek-v4-flash-0731", "jev": "jev-latest"})
 
 _JEV_URL = "https://api.typesafe.ai/v1/systemone"
-_QUESTION = "Does the review remark point out the expected defect, even in other words?"
+_QUESTION = (
+    "Does the review remark point out the expected defect: the same failure, from the same cause, "
+    "even in other words? A remark about the same code that names another problem is not the "
+    "expected defect."
+)
 
 
 def from_environment(

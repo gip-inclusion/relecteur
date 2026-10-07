@@ -9,3 +9,6 @@ were written for the recording.
 | --- | --- |
 | `albert-same-defect.json` | An error of the Slack client is no longer rescued, so the job retries and posts the alert again: the remark describes it. |
 | `albert-other-defect.json` | The alert names the agent's organisation instead of the user's: the remark does not describe it. |
+
+They were recorded before the question was made stricter, on 2026-10-08: the reading of
+logprobs they test does not depend on its wording.
