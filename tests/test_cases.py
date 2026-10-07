@@ -38,7 +38,7 @@ def test_a_pull_request_fixed_after_its_approval_is_loaded_with_its_expected_def
             path="src/billing.py",
             line=42,
             concept="Applies the discount a second time when the invoice total is recomputed.",
-            fix="02e2ac918dae906395d05b502d386fcb4bfe20a8",
+            fix="https://forge.example/team/app/pull/4",
             escaped_review=True,
         ),
     )

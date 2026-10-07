@@ -82,7 +82,7 @@ max_findings = 2
 path = "src/billing.py"
 line = 42
 concept = "Applies the discount a second time when the invoice total is recomputed."
-fix = "02e2ac918dae906395d05b502d386fcb4bfe20a8"
+fix = "https://github.com/team/app/pull/1240"
 escaped_review = true
 ```
 
@@ -90,7 +90,7 @@ escaped_review = true
 | --- | --- |
 | `path`, `line` | Where the defect is, in the `head` commit. |
 | `concept` | The defect, in plain words: the judge compares it with the text of the findings. |
-| `fix` | Full SHA of the commit that fixed the defect. |
+| `fix` | Link to the change that fixed the defect, for the humans reading the case: its pull request, its commit when it has none, or, for a defect a reviewer caught, the fix commit within the pull request. |
 | `escaped_review` | Whether the human review of the pull request let the defect through, so that the report tells what the reviewer adds to the humans rather than how much it resembles them. |
 
 `max_findings` must leave room for every expected defect.
@@ -107,8 +107,9 @@ squash-merged pull request, it is fetched from the `origin` remote.
 
 [`skills/build-eval-cases/SKILL.md`](skills/build-eval-cases/SKILL.md) has an agent draft cases
 from the history of a repository on GitHub: silence cases from pull requests approved without any
-comment, defect cases from fix commits. The agent checks its cases with `relecteur validate` and
-proposes them in a pull request, which it never merges.
+comment, defect cases from fix commits. The agent checks its cases with `relecteur validate`,
+and leaves them uncommitted with the evidence for each one: the person who ran it reviews them,
+keeps those that hold, and adds them through a pull request.
 
 A skill is a Markdown file, which any agent can follow. With Claude Code, copy the
 `build-eval-cases` folder into the repository's `.claude/skills` directory, then run

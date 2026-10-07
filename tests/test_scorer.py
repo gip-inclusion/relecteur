@@ -146,7 +146,7 @@ DISCOUNT_APPLIED_TWICE = ExpectedDefect(
     path="src/billing.py",
     line=42,
     concept="Applies the discount a second time when the invoice total is recomputed.",
-    fix="3" * 40,
+    fix="https://forge.example/team/app/pull/5",
     escaped_review=True,
 )
 FIXED_AFTER_APPROVAL = replace(

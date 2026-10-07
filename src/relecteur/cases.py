@@ -15,7 +15,7 @@ class ForbiddenRemark:
 
 @dataclass(frozen=True)
 class ExpectedDefect:
-    """A defect the pull request introduced, which the `fix` commit corrected afterwards.
+    """A defect the pull request introduced, which the change linked by `fix` corrected afterwards.
 
     `escaped_review` tells whether the human review of the pull request let it through.
     """
@@ -166,7 +166,7 @@ _REMARK_FIELDS = {
 }
 _DEFECT_FIELDS = {
     **_REMARK_FIELDS,
-    "fix": (_is_sha, "a full commit SHA"),
+    "fix": (_is_text, "a non-empty string"),
     "escaped_review": (_is_boolean, "true or false"),
 }
 _TABLES = (
