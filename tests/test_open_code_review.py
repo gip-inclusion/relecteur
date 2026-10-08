@@ -101,14 +101,28 @@ def test_a_real_review_whose_model_never_finished_is_unfinished_and_not_unavaila
     )
 
 
-def test_a_review_cut_short_by_a_rate_limit_is_resumed_from_its_session():
-    output = (OUTPUTS / "rate-limited.json").read_text()
+def test_a_review_cut_short_by_a_timeout_is_an_error_without_findings():
+    review = parse("timed-out.json")
 
-    assert open_code_review.session_to_resume(output) == "51bd43a9-3631-4302-9708-1581af54208f"
+    assert review.error == "review incomplete (6 of 19 file(s) not reviewed): timeout"
+    assert review.findings == ()
+
+
+@pytest.mark.parametrize(
+    ("output", "session"),
+    [
+        ("rate-limited.json", "51bd43a9-3631-4302-9708-1581af54208f"),
+        ("timed-out.json", "7e3b9c41-2d6a-4f8e-b5c0-91a4d2e6f310"),
+    ],
+)
+def test_a_review_cut_short_by_a_rate_limit_or_a_timeout_is_resumed_from_its_session(
+    output, session
+):
+    assert open_code_review.session_to_resume((OUTPUTS / output).read_text()) == session
 
 
 @pytest.mark.parametrize("output", ["silent.json", "overloaded.json", "tool-rounds-exhausted.json"])
-def test_a_review_cut_short_by_anything_but_a_rate_limit_is_not_resumed(output):
+def test_a_review_cut_short_by_anything_else_is_not_resumed(output):
     assert open_code_review.session_to_resume((OUTPUTS / output).read_text()) is None
 
 

@@ -13,4 +13,5 @@ recorded outputs as real runs make them available.
 | `tool-rounds-exhausted.json` | recorded, `deepseek-v4-flash-0731` | The model never called the engine's tools: both files ran out of rounds (exit code 1). |
 | `no-supported-files.json` | written | Pull request without any file the engine reviews. |
 | `rate-limited.json` | recorded, `deepseek-v4-flash-0731`, pull request 3128 at high effort | 3 files of 19 not reviewed: the model answered 429 after retries (exit code 0). |
+| `timed-out.json` | written from `rate-limited.json` | 6 files of 19 not reviewed: the engine's subtasks timed out, as Albert answered 504 on pull request 3128 at high effort. |
 | `overloaded.json` | written | No file reviewed: the model answered 503 after retries (exit code 1). |

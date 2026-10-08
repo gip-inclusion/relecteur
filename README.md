@@ -201,10 +201,10 @@ the real home directory.
 
 Each group sends its own requests to the model. Albert answers too many of them at once with
 HTTP 429, hence 2 groups at a time by default, which a model served without such limits can
-raise. The engine retries a refused request, then gives up on its files; when the rate limit
-alone left files unreviewed, `relecteur eval` resumes the engine's session after a minute, up to
-3 times, and the engine reviews the files left only. A case still incomplete afterwards gets no
-verdict.
+raise. The engine retries a refused request, then gives up on its files, as it does on files
+that take longer than its timeout. When the rate limit or timeouts alone left files unreviewed,
+`relecteur eval` resumes the engine's session after a minute, up to 3 times, and the engine
+reviews the files left only. A case still incomplete afterwards gets no verdict.
 
 ### Tool calls on Albert
 

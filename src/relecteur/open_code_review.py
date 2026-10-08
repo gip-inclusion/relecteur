@@ -22,7 +22,8 @@ _COMPLETE = frozenset({"complete", "success", "completed_with_warnings"})
 # Failure classes of a model or an engine out of reach, rather than of an unfinished review.
 _UNAVAILABLE = frozenset({"provider", "timeout", "cancelled"})
 
-# A run cut short by the model's rate limit is resumed this many times, after this pause.
+# A run cut short by the model's rate limit or by timeouts is resumed this many times, after
+# this pause.
 _RESUMES = 3
 _RESUME_PAUSE_SECONDS = 60
 
@@ -44,8 +45,8 @@ class Settings:
 def review(repo: Path, base: str, head: str, model: Model, settings: Settings) -> Review:
     """Reviews `head` against its merge base with `base`, as the pull request was opened.
 
-    When the model's rate limit cuts the run short, it is resumed after a pause: the engine
-    then reviews the files left only, its session being kept in the home directory of the
+    When the model's rate limit or timeouts cut the run short, it is resumed after a pause: the
+    engine then reviews the files left only, its session being kept in the home directory of the
     review.
     """
     command = ["ocr", "review", "--repo", str(repo), "--from", base, "--to", head]
@@ -59,8 +60,7 @@ def review(repo: Path, base: str, head: str, model: Model, settings: Settings) -
                 if not (session := session_to_resume(runs[-1].stdout)):
                     break
                 print(
-                    f"  rate limited, resuming in {_RESUME_PAUSE_SECONDS} s "
-                    f"({attempt} of {_RESUMES})",
+                    f"  cut short, resuming in {_RESUME_PAUSE_SECONDS} s ({attempt} of {_RESUMES})",
                     file=sys.stderr,
                     flush=True,
                 )
@@ -77,7 +77,7 @@ def review(repo: Path, base: str, head: str, model: Model, settings: Settings) -
 
 
 def session_to_resume(stdout: str) -> str | None:
-    """The session of a run that the model's rate limit (HTTP 429) cut short.
+    """The session of a run that the model's rate limit (HTTP 429) or timeouts cut short.
 
     Resuming it reviews the files left only. Other failures are not resumed: a reviewer that did
     not finish would end the same way, and a model failing otherwise may not recover in minutes.
@@ -86,9 +86,10 @@ def session_to_resume(stdout: str) -> str | None:
         output = json.loads(stdout)
         if output["status"] in _COMPLETE or output["status"] == "skipped":
             return None
+        classes = _failure_classes(output)
         status_codes = {attempt.get("status_code") for attempt in _last_failed_attempts(output)}
-        rate_limited = _failure_classes(output) == {"provider"} and status_codes == {429}
-        return output.get("session_id") if rate_limited else None
+        transient = bool(classes) and classes <= {"provider", "timeout"} and status_codes <= {429}
+        return output.get("session_id") if transient else None
     except (json.JSONDecodeError, KeyError, TypeError):
         return None
 
