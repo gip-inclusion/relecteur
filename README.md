@@ -189,13 +189,17 @@ The engine runs with an empty home directory, so that a personal open-code-revie
 configuration never overrides the model chosen here; git keeps the global configuration of
 the real home directory.
 
-### Rate limits
+### Engine settings
 
-The engine reviews several groups of files at once, each sending its own requests to the model.
-Albert answers too many simultaneous requests with HTTP 429; the engine retries them, then
-gives up on the files left, and the case gets no verdict. `relecteur eval` therefore has the
-engine review 2 groups at a time; `--concurrency` sets another number, higher for a model
-served without such limits.
+| Option | Default | |
+| --- | --- | --- |
+| `--effort` | `high` | The engine's effort preset, `low`, `medium` or `high`: a higher one spends more rounds and tokens on each group of files. |
+| `--concurrency` | `2` | Groups of files the engine reviews at once. |
+
+Each group sends its own requests to the model. Albert answers too many of them at once with
+HTTP 429; the engine retries them, then gives up on the files left, and the case gets no
+verdict. Hence 2 groups at a time by default, which a model served without such limits can
+raise.
 
 ### Tool calls on Albert
 

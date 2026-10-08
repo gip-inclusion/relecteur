@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 from relecteur.model import Model
@@ -19,14 +20,25 @@ _COMPLETE = frozenset({"complete", "success", "completed_with_warnings"})
 # Failure classes of a model or an engine out of reach, rather than of an unfinished review.
 _UNAVAILABLE = frozenset({"provider", "timeout", "cancelled"})
 
+EFFORTS = ("low", "medium", "high")
 
-def review(repo: Path, base: str, head: str, model: Model, concurrency: int) -> Review:
-    """Reviews `head` against its merge base with `base`, as the pull request was opened.
 
-    The engine reviews up to `concurrency` groups of files at once, each with its own requests.
+@dataclass(frozen=True)
+class Settings:
+    """How the engine reviews: its effort preset, and how many groups of files it reviews at once.
+
+    A higher effort spends more rounds and tokens on each group; each group sends its own
+    requests to the model, so concurrency is what runs into a model's rate limit.
     """
+
+    effort: str = "high"
+    concurrency: int = 2
+
+
+def review(repo: Path, base: str, head: str, model: Model, settings: Settings) -> Review:
+    """Reviews `head` against its merge base with `base`, as the pull request was opened."""
     command = ["ocr", "review", "--repo", str(repo), "--from", base, "--to", head]
-    command += ["--concurrency", str(concurrency)]
+    command += ["--effort", settings.effort, "--concurrency", str(settings.concurrency)]
     with tempfile.TemporaryDirectory() as home:
         try:
             completed = subprocess.run(

@@ -15,7 +15,6 @@ from relecteur.scorer import DEFAULT_LINE_TOLERANCE, DEFAULT_THRESHOLD, Matching
 
 EXIT_CODES = {Outcome.PASSED: 0, Outcome.FAILED: 1, Outcome.ERROR: 3}
 INVALID_INPUT = 2
-DEFAULT_CONCURRENCY = 2
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -56,12 +55,19 @@ def main(argv: list[str] | None = None) -> int:
         f"(default: {DEFAULT_LINE_TOLERANCE})",
     )
 
+    defaults = open_code_review.Settings()
+    eval_command.add_argument(
+        "--effort",
+        choices=open_code_review.EFFORTS,
+        default=defaults.effort,
+        help=f"review effort preset of the engine (default: {defaults.effort})",
+    )
     eval_command.add_argument(
         "--concurrency",
         type=_concurrency,
-        default=DEFAULT_CONCURRENCY,
+        default=defaults.concurrency,
         help="groups of files the engine reviews at once, each sending its own requests to the "
-        f"model (default: {DEFAULT_CONCURRENCY})",
+        f"model (default: {defaults.concurrency})",
     )
 
     validate_command = commands.add_parser("validate", help="check the format of case files")
@@ -105,10 +111,10 @@ def _eval(arguments):
         f"{len(cases)} case(s) in {path}, reviewed by {model.name} at {model.url}",
         flush=True,
     )
+    engine = open_code_review.Settings(arguments.effort, arguments.concurrency)
     with proxy.relaying(model.url) as relay_url:
         reviews = {
-            case: _review(case, repo, replace(model, url=relay_url), arguments.concurrency)
-            for case in cases
+            case: _review(case, repo, replace(model, url=relay_url), engine) for case in cases
         }
     report = evaluate(
         cases, reviews, Matching(judge, arguments.line_tolerance, arguments.judge_threshold)
@@ -124,13 +130,13 @@ def _proxy(port, upstream):
     return 0
 
 
-def _review(case, repo, model, concurrency):
+def _review(case, repo, model, engine):
     print(f"reviewing {case.name} ({case.base[:10]}..{case.head[:10]})", file=sys.stderr)
     try:
         repository.ensure_commits(repo, case.base, case.head)
     except repository.RepositoryError as error:
         return Review(error=str(error))
-    return open_code_review.review(repo, case.base, case.head, model, concurrency)
+    return open_code_review.review(repo, case.base, case.head, model, engine)
 
 
 def _probability(text):
