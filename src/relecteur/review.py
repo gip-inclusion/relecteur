@@ -17,8 +17,12 @@ class Review:
 
     `error` tells why the model or the engine could not review it: that is no verdict on the
     reviewer. `unfinished` tells why the reviewer, once reached, did not finish its review.
+    `tokens` and `seconds` tell what reviewing cost, when known: the tokens the model consumed,
+    and the time the review took.
     """
 
     findings: tuple[Finding, ...] = ()
     error: str | None = None
     unfinished: str | None = None
+    tokens: int | None = None
+    seconds: float | None = None

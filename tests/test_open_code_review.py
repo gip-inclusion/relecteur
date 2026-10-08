@@ -36,12 +36,13 @@ def test_the_engine_comments_become_normalized_findings():
                 end_line=35,
                 text=SLACK_REMARK,
             ),
-        )
+        ),
+        tokens=9690,
     )
 
 
 def test_a_silent_review_has_no_finding():
-    assert parse("silent.json") == Review()
+    assert parse("silent.json") == Review(tokens=19069)
 
 
 def test_a_pull_request_without_any_reviewed_file_is_an_error_and_not_a_silence():
@@ -55,7 +56,8 @@ def test_a_review_cut_short_by_a_rate_limit_is_an_error_without_findings():
 
     assert review == Review(
         error="model unavailable, review incomplete (3 of 19 file(s) not reviewed): "
-        "rate_limited (HTTP 429)"
+        "rate_limited (HTTP 429)",
+        tokens=1811059,
     )
 
 
@@ -64,7 +66,8 @@ def test_an_overloaded_model_on_every_file_is_an_error():
 
     assert review == Review(
         error="model unavailable, review incomplete (1 of 1 file(s) not reviewed): "
-        "overloaded (HTTP 503)"
+        "overloaded (HTTP 503)",
+        tokens=0,
     )
 
 
@@ -93,7 +96,9 @@ def test_an_output_of_unexpected_shape_is_an_error_and_not_a_crash():
 def test_a_real_review_whose_model_never_finished_is_unfinished_and_not_unavailable():
     review = parse("tool-rounds-exhausted.json", returncode=1)
 
-    assert review == Review(unfinished="review not finished (2 of 2 file(s) not reviewed): budget")
+    assert review == Review(
+        unfinished="review not finished (2 of 2 file(s) not reviewed): budget", tokens=273391
+    )
 
 
 def test_a_review_cut_short_by_a_rate_limit_is_resumed_from_its_session():
@@ -105,3 +110,11 @@ def test_a_review_cut_short_by_a_rate_limit_is_resumed_from_its_session():
 @pytest.mark.parametrize("output", ["silent.json", "overloaded.json", "tool-rounds-exhausted.json"])
 def test_a_review_cut_short_by_anything_but_a_rate_limit_is_not_resumed(output):
     assert open_code_review.session_to_resume((OUTPUTS / output).read_text()) is None
+
+
+@pytest.mark.parametrize(
+    ("output", "tokens"),
+    [("silent.json", 19069), ("rate-limited.json", 1811059), ("no-supported-files.json", None)],
+)
+def test_a_review_tells_the_tokens_the_model_consumed_even_when_cut_short(output, tokens):
+    assert parse(output).tokens == tokens

@@ -119,7 +119,7 @@ def _eval(arguments):
     report = evaluate(
         cases, reviews, Matching(judge, arguments.line_tolerance, arguments.judge_threshold)
     )
-    _print(report)
+    _print(report, reviews)
     return EXIT_CODES[report.outcome]
 
 
@@ -160,13 +160,15 @@ def _line_count(text):
     return value
 
 
-def _print(report):
+def _print(report, reviews):
     print()
     for result in report.results:
         summary = "; ".join(result.reasons) or (
             f"{len(result.findings)} finding(s), ceiling is {result.case.max_findings}"
         )
-        print(f"{result.outcome.name:<8} {result.case.name}: {summary}")
+        review = reviews[result.case]
+        cost = _cost(review.seconds, review.tokens)
+        print(f"{result.outcome.name:<8} {result.case.name}{cost and f' ({cost})'}: {summary}")
         for finding in result.findings:
             text = finding.text.splitlines()[0] if finding.text else ""
             print(f"         {finding.path}:{finding.start_line}: {text}")
@@ -182,7 +184,33 @@ def _print(report):
                 [defect_result for result in defect_cases for defect_result in result.defects]
             )
         )
+    seconds = _sum(review.seconds for review in reviews.values())
+    tokens = _sum(review.tokens for review in reviews.values())
+    print(f"cost: {_cost(seconds, tokens) or 'unknown'}")
     print(f"verdict: {report.outcome.name}")
+
+
+def _cost(seconds, tokens):
+    parts = []
+    if seconds is not None:
+        minutes, seconds = divmod(round(seconds), 60)
+        parts.append(f"{minutes}m{seconds:02d}s" if minutes else f"{seconds}s")
+    if tokens is not None:
+        parts.append(f"{_token_count(tokens)} tokens")
+    return ", ".join(parts)
+
+
+def _token_count(tokens):
+    if tokens >= 1_000_000:
+        return f"{tokens / 1_000_000:.1f}M"
+    if tokens >= 1_000:
+        return f"{tokens / 1_000:.0f}k"
+    return str(tokens)
+
+
+def _sum(values):
+    known = [value for value in values if value is not None]
+    return sum(known) if known else None
 
 
 def _defect_line(result):

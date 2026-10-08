@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from relecteur.model import Model
@@ -51,11 +51,12 @@ def review(repo: Path, base: str, head: str, model: Model, settings: Settings) -
     command = ["ocr", "review", "--repo", str(repo), "--from", base, "--to", head]
     command += ["--effort", settings.effort, "--concurrency", str(settings.concurrency)]
     command += ["--format", "json", "--audience", "agent"]
+    started = time.monotonic()
     with tempfile.TemporaryDirectory() as home:
         try:
-            completed = _run(command, model, home)
+            runs = [_run(command, model, home)]
             for attempt in range(1, _RESUMES + 1):
-                if not (session := session_to_resume(completed.stdout)):
+                if not (session := session_to_resume(runs[-1].stdout)):
                     break
                 print(
                     f"  rate limited, resuming in {_RESUME_PAUSE_SECONDS} s "
@@ -64,10 +65,15 @@ def review(repo: Path, base: str, head: str, model: Model, settings: Settings) -
                     flush=True,
                 )
                 time.sleep(_RESUME_PAUSE_SECONDS)
-                completed = _run([*command, "--resume", session], model, home)
+                runs.append(_run([*command, "--resume", session], model, home))
         except FileNotFoundError:
             return Review(error=f"open-code-review is not installed (ocr): {_INSTALL_COMMAND}")
-    return parse(completed.stdout, completed.stderr, completed.returncode)
+    reviews = [parse(run.stdout, run.stderr, run.returncode) for run in runs]
+    return replace(
+        reviews[-1],
+        tokens=sum(review.tokens or 0 for review in reviews),
+        seconds=time.monotonic() - started,
+    )
 
 
 def session_to_resume(stdout: str) -> str | None:
@@ -124,15 +130,18 @@ def parse(stdout: str, stderr: str, returncode: int) -> Review:
         last_line = stderr.strip().splitlines()[-1] if stderr.strip() else "no output"
         return Review(error=f"open-code-review exited with code {returncode}: {last_line}")
     try:
+        tokens = (output.get("summary") or {}).get("total_tokens")
         if output["status"] == "skipped":
             return Review(
                 error="no file reviewed: the engine supports none of the files this pull request "
                 "changes"
             )
         if output["status"] not in _COMPLETE:
-            return _incomplete_review(output)
-        return Review(findings=tuple(_finding(comment) for comment in output["comments"]))
-    except (KeyError, TypeError) as error:
+            return replace(_incomplete_review(output), tokens=tokens)
+        return Review(
+            findings=tuple(_finding(comment) for comment in output["comments"]), tokens=tokens
+        )
+    except (AttributeError, KeyError, TypeError) as error:
         return Review(error=f"unexpected open-code-review output: {error!r}")
 
 

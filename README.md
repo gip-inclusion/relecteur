@@ -140,6 +140,9 @@ exits with:
 | 2 | Invalid input: a malformed case, a missing API key, an invalid option, no repository found. |
 | 3 | No verdict: no silence case failed, but one could not be reviewed: model unavailable (overload, quota reached, timeout), engine missing, or a pull request with no file the engine reviews. |
 
+Each case's line tells how long its review took, pauses included, and the tokens the model
+consumed, and the report ends with their total.
+
 Only silence cases decide the verdict: a remark on a sound pull request is a regression of the
 reviewer, a missed defect is not. Defect cases are reported, with the defects found and among
 them those the human review had let through, and never change the exit code.
