@@ -144,7 +144,7 @@ def test_a_failed_case_fails_the_verdict_even_when_another_case_errored():
 
 DISCOUNT_APPLIED_TWICE = ExpectedDefect(
     path="src/billing.py",
-    line=42,
+    lines=(42,),
     concept="Applies the discount a second time when the invoice total is recomputed.",
     fix="https://forge.example/team/app/pull/5",
     escaped_review=True,
@@ -214,6 +214,19 @@ def test_a_finding_is_judged_only_within_the_line_tolerance(start_line, end_line
     result = score(FIXED_AFTER_APPROVAL, Review(findings=(remark,)), within_three_lines)
 
     assert result.defects[0].found is found
+
+
+@pytest.mark.parametrize(
+    ("line", "asked"), [(25, True), (34, True), (10, False)], ids=["first", "second", "neither"]
+)
+def test_a_defect_spread_over_several_lines_is_judged_near_any_of_them(line, asked):
+    judge = FixedJudge(1.0)
+    double_lookup = replace(DISCOUNT_APPLIED_TWICE, lines=(28, 35))
+    case = replace(FIXED_AFTER_APPROVAL, expected_defects=(double_lookup,))
+
+    score(case, Review(findings=(finding(line=line),)), Matching(judge))
+
+    assert bool(judge.questions) is asked
 
 
 def test_without_tolerance_a_finding_must_cover_the_line_of_the_defect():

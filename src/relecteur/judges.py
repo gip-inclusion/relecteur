@@ -131,7 +131,7 @@ def _word_probability(candidates, word):
 
 def _situation(finding, defect):
     return (
-        f"Expected defect, at {defect.path}:{defect.line}:\n{defect.concept}\n\n"
+        f"Expected defect, at {defect.location}:\n{defect.concept}\n\n"
         f"Review remark, at {finding.path}:{finding.start_line}-{finding.end_line}:\n"
         f"{finding.text}"
     )

@@ -17,14 +17,19 @@ class ForbiddenRemark:
 class ExpectedDefect:
     """A defect the pull request introduced, which the change linked by `fix` corrected afterwards.
 
-    `escaped_review` tells whether the human review of the pull request let it through.
+    `lines` are where a reviewer may point it out, and `escaped_review` tells whether the human
+    review of the pull request let it through.
     """
 
     path: str
-    line: int
+    lines: tuple[int, ...]
     concept: str
     fix: str
     escaped_review: bool
+
+    @property
+    def location(self) -> str:
+        return f"{self.path}:{','.join(str(line) for line in self.lines)}"
 
 
 @dataclass(frozen=True)
@@ -87,9 +92,13 @@ def _load(path):
             ForbiddenRemark(**remark) for remark in data.get("forbidden_remarks", [])
         ),
         expected_defects=tuple(
-            ExpectedDefect(**defect) for defect in data.get("expected_defects", [])
+            _expected_defect(**defect) for defect in data.get("expected_defects", [])
         ),
     )
+
+
+def _expected_defect(line, **fields):
+    return ExpectedDefect(lines=tuple(line) if isinstance(line, list) else (line,), **fields)
 
 
 def _case_problems(data):
@@ -140,6 +149,12 @@ def _is_line_number(value):
     return _is_integer(value) and value >= 1
 
 
+def _is_line_or_lines(value):
+    if isinstance(value, list):
+        return bool(value) and all(_is_line_number(line) for line in value)
+    return _is_line_number(value)
+
+
 def _is_boolean(value):
     return isinstance(value, bool)
 
@@ -166,6 +181,7 @@ _REMARK_FIELDS = {
 }
 _DEFECT_FIELDS = {
     **_REMARK_FIELDS,
+    "line": (_is_line_or_lines, "a line number or a non-empty list of line numbers"),
     "fix": (_is_text, "a non-empty string"),
     "escaped_review": (_is_boolean, "true or false"),
 }

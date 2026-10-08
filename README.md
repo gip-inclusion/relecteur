@@ -88,7 +88,7 @@ escaped_review = true
 
 | Field | Meaning |
 | --- | --- |
-| `path`, `line` | Where the defect is, in the `head` commit. |
+| `path`, `line` | Where the defect is, in the `head` commit: a line, or a list of lines (`line = [28, 35]`) when a reviewer may point it out in several places, such as a function and its call. |
 | `concept` | The defect, in plain words: the judge compares it with the text of the findings. |
 | `fix` | Link to the change that fixed the defect, for the humans reading the case: its pull request, its commit when it has none, or, for a defect a reviewer caught, the fix commit within the pull request. |
 | `escaped_review` | Whether the human review of the pull request let the defect through, so that the report tells what the reviewer adds to the humans rather than how much it resembles them. |

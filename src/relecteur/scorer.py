@@ -27,8 +27,9 @@ DEFAULT_THRESHOLD = 0.5
 class Matching:
     """How a finding is matched to an expected defect.
 
-    A finding of the defect's file, within `line_tolerance` lines of it, is asked to the judge;
-    any other finding never is. The defect is found from a probability of `threshold` on.
+    A finding of the defect's file, within `line_tolerance` lines of one of its lines, is asked to
+    the judge; any other finding never is. The defect is found from a probability of `threshold`
+    on.
     """
 
     judge: Judge
@@ -96,7 +97,7 @@ def score(case: Case, review: Review, matching: Matching) -> CaseResult:
     except JudgeUnavailable as error:
         return CaseResult(case, Outcome.ERROR, review.findings, (str(error),))
     reasons += [
-        f"defect missed at {result.defect.path}:{result.defect.line}: {result.defect.concept}"
+        f"defect missed at {result.defect.location}: {result.defect.concept}"
         for result in defects
         if not result.found
     ]
@@ -122,9 +123,9 @@ def _defect_result(defect, findings, matching):
 
 
 def _near(finding, defect, tolerance):
-    return (
-        finding.path == defect.path
-        and finding.start_line - tolerance <= defect.line <= finding.end_line + tolerance
+    return finding.path == defect.path and any(
+        finding.start_line - tolerance <= line <= finding.end_line + tolerance
+        for line in defect.lines
     )
 
 

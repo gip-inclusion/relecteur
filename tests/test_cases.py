@@ -36,7 +36,7 @@ def test_a_pull_request_fixed_after_its_approval_is_loaded_with_its_expected_def
     assert case.expected_defects == (
         ExpectedDefect(
             path="src/billing.py",
-            line=42,
+            lines=(42,),
             concept="Applies the discount a second time when the invoice total is recomputed.",
             fix="https://forge.example/team/app/pull/4",
             escaped_review=True,
@@ -44,11 +44,18 @@ def test_a_pull_request_fixed_after_its_approval_is_loaded_with_its_expected_def
     )
 
 
+def test_a_defect_spread_over_several_lines_is_loaded_with_each_of_them():
+    [case] = load_cases(CASES / "suite" / "defect-over-two-lines.toml")
+
+    assert case.expected_defects[0].lines == (28, 35)
+
+
 def test_a_directory_holds_one_case_per_file():
     cases = load_cases(CASES / "suite")
 
     assert [case.name for case in cases] == [
         "approved-without-comment",
+        "defect-over-two-lines",
         "fixed-after-approval",
         "thumbs-up-without-remark",
     ]
@@ -66,6 +73,11 @@ def test_a_directory_holds_one_case_per_file():
         (
             "escaped-review-in-words.toml",
             "expected defect 1: 'escaped_review' must be true or false, got 'yes'",
+        ),
+        (
+            "defect-without-lines.toml",
+            "expected defect 1: 'line' must be a line number or a non-empty list of line "
+            "numbers, got []",
         ),
         (
             "ceiling-below-defects.toml",

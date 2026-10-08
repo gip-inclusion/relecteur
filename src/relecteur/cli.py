@@ -190,9 +190,9 @@ def _defect_line(result):
     status = "found" if result.found else "missed"
     escaped = ", which the human review let through" if defect.escaped_review else ""
     if result.finding is None:
-        return f"{status} defect at {defect.path}:{defect.line}{escaped}: no finding near it"
+        return f"{status} defect at {defect.location}{escaped}: no finding near it"
     return (
-        f"{status} defect at {defect.path}:{defect.line}{escaped}: the judge gives "
+        f"{status} defect at {defect.location}{escaped}: the judge gives "
         f"{result.probability:.2f} to {result.finding.path}:{result.finding.start_line}"
     )
 
