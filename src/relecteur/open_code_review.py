@@ -6,7 +6,9 @@ Changing engine means writing another module that turns a pull request into a `R
 import json
 import os
 import subprocess
+import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -19,6 +21,10 @@ _INSTALL_COMMAND = "npm install --global @alibaba-group/open-code-review@1.12.11
 _COMPLETE = frozenset({"complete", "success", "completed_with_warnings"})
 # Failure classes of a model or an engine out of reach, rather than of an unfinished review.
 _UNAVAILABLE = frozenset({"provider", "timeout", "cancelled"})
+
+# A run cut short by the model's rate limit is resumed this many times, after this pause.
+_RESUMES = 3
+_RESUME_PAUSE_SECONDS = 60
 
 EFFORTS = ("low", "medium", "high")
 
@@ -36,21 +42,55 @@ class Settings:
 
 
 def review(repo: Path, base: str, head: str, model: Model, settings: Settings) -> Review:
-    """Reviews `head` against its merge base with `base`, as the pull request was opened."""
+    """Reviews `head` against its merge base with `base`, as the pull request was opened.
+
+    When the model's rate limit cuts the run short, it is resumed after a pause: the engine
+    then reviews the files left only, its session being kept in the home directory of the
+    review.
+    """
     command = ["ocr", "review", "--repo", str(repo), "--from", base, "--to", head]
     command += ["--effort", settings.effort, "--concurrency", str(settings.concurrency)]
+    command += ["--format", "json", "--audience", "agent"]
     with tempfile.TemporaryDirectory() as home:
         try:
-            completed = subprocess.run(
-                [*command, "--format", "json", "--audience", "agent"],
-                capture_output=True,
-                text=True,
-                check=False,
-                env=_environment(model, home),
-            )
+            completed = _run(command, model, home)
+            for attempt in range(1, _RESUMES + 1):
+                if not (session := session_to_resume(completed.stdout)):
+                    break
+                print(
+                    f"  rate limited, resuming in {_RESUME_PAUSE_SECONDS} s "
+                    f"({attempt} of {_RESUMES})",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                time.sleep(_RESUME_PAUSE_SECONDS)
+                completed = _run([*command, "--resume", session], model, home)
         except FileNotFoundError:
             return Review(error=f"open-code-review is not installed (ocr): {_INSTALL_COMMAND}")
     return parse(completed.stdout, completed.stderr, completed.returncode)
+
+
+def session_to_resume(stdout: str) -> str | None:
+    """The session of a run that the model's rate limit (HTTP 429) cut short.
+
+    Resuming it reviews the files left only. Other failures are not resumed: a reviewer that did
+    not finish would end the same way, and a model failing otherwise may not recover in minutes.
+    """
+    try:
+        output = json.loads(stdout)
+        if output["status"] in _COMPLETE or output["status"] == "skipped":
+            return None
+        status_codes = {attempt.get("status_code") for attempt in _last_failed_attempts(output)}
+        rate_limited = _failure_classes(output) == {"provider"} and status_codes == {429}
+        return output.get("session_id") if rate_limited else None
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return None
+
+
+def _run(command, model, home):
+    return subprocess.run(
+        command, capture_output=True, text=True, check=False, env=_environment(model, home)
+    )
 
 
 def _environment(model, home):
@@ -110,10 +150,9 @@ def _incomplete_review(output):
     coverage = manifest.get("coverage", {})
     failed = coverage.get("failed", [])
     selected = coverage.get("selected", [])
-    classes = {item["classification"] for item in failed}
-    causes = _provider_errors(output) or sorted(classes)
+    classes = _failure_classes(output)
+    causes = _provider_errors(output) or sorted({item["classification"] for item in failed})
     if run_failure := manifest.get("run_failure"):
-        classes.add(run_failure["classification"])
         causes.append(f"{run_failure['classification']}: {run_failure.get('reason', '')}")
     scope = f" ({len(failed)} of {len(selected)} file(s) not reviewed)" if selected else ""
     detail = ", ".join(causes) or output.get("message", output["status"])
@@ -123,15 +162,30 @@ def _incomplete_review(output):
     return Review(unfinished=f"review not finished{scope}: {detail}")
 
 
+def _failure_classes(output):
+    """The classifications of the files a run did not review, and of the run itself."""
+    manifest = output.get("manifest") or {}
+    classes = {item["classification"] for item in manifest.get("coverage", {}).get("failed", [])}
+    if run_failure := manifest.get("run_failure"):
+        classes.add(run_failure["classification"])
+    return classes
+
+
 def _provider_errors(output):
     errors = []
-    for request in (output.get("retry_report") or {}).get("requests", []):
-        if request["outcome"] != "failed" or not request["attempts"]:
-            continue
-        last_attempt = request["attempts"][-1]
-        error = last_attempt.get("error_class", "unknown")
-        if status_code := last_attempt.get("status_code"):
+    for attempt in _last_failed_attempts(output):
+        error = attempt.get("error_class", "unknown")
+        if status_code := attempt.get("status_code"):
             error += f" (HTTP {status_code})"
         if error not in errors:
             errors.append(error)
     return errors
+
+
+def _last_failed_attempts(output):
+    """The last attempt of each request to the model that the engine gave up retrying."""
+    return [
+        request["attempts"][-1]
+        for request in (output.get("retry_report") or {}).get("requests", [])
+        if request["outcome"] == "failed" and request["attempts"]
+    ]
