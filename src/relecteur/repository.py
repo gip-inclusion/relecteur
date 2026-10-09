@@ -1,5 +1,8 @@
 import subprocess
+from collections.abc import Mapping
 from pathlib import Path
+
+from dotenv import dotenv_values
 
 CASES = Path(".relecteur", "cases")
 
@@ -20,6 +23,15 @@ def cases_directory(path: Path) -> Path:
     if not cases.is_dir():
         raise RepositoryError(f"{cases} does not exist: create it, with one file per case")
     return cases
+
+
+def environment(repo: Path, environ: Mapping[str, str]) -> dict[str, str]:
+    """The environment, completed by the variables of the repository's .env file.
+
+    As with dotenv, a variable the environment already sets keeps its value.
+    """
+    values = dotenv_values(repo / ".env")
+    return {**{name: value for name, value in values.items() if value is not None}, **environ}
 
 
 def ensure_commits(repo: Path, *commits: str) -> None:

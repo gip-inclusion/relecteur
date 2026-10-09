@@ -101,9 +101,10 @@ def _eval(arguments):
     try:
         path = arguments.cases or repository.cases_directory(Path.cwd())
         cases = load_cases(path)
-        model = Model.from_environment(os.environ, arguments.model_url, arguments.model)
-        judge = judges.from_environment(os.environ, arguments.judge, arguments.judge_model, model)
         repo = repository.root(path).resolve()
+        environ = repository.environment(repo, os.environ)
+        model = Model.from_environment(environ, arguments.model_url, arguments.model)
+        judge = judges.from_environment(environ, arguments.judge, arguments.judge_model, model)
     except (InvalidCases, MissingApiKey, repository.RepositoryError) as error:
         print(error, file=sys.stderr)
         return INVALID_INPUT

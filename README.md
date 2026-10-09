@@ -24,6 +24,10 @@ evaluates: that repository only provides case files.
 - To judge expected defects with Jev rather than Albert, an API key from
   [TypeSafe](https://typesafe.ai) in `TYPESAFE_API_KEY`.
 
+These variables can also be set in the `.env` file at the root of the evaluated repository, which
+`relecteur eval` reads as dotenv does: a variable the environment already sets keeps its value.
+Keep that file out of git.
+
 ## Installation
 
 Install the `relecteur` command once, in its own environment, with
@@ -179,7 +183,7 @@ never a missed defect.
 
 open-code-review reaches the model through an OpenAI-compatible endpoint. The model is
 configured, never written in code: each setting is read from the command line, then the
-environment, then falls back to Albert.
+environment or the repository's `.env` file, then falls back to Albert.
 
 | Option | Environment variable | Default |
 | --- | --- | --- |
