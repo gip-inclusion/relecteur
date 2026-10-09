@@ -207,8 +207,9 @@ most often: verify each link with git or the API rather than infer it from commi
 A human reviewer's comment on a line pointed out a defect, or asked for what a convention written
 in the repository prescribes (in its `AGENTS.md`, `CONTRIBUTING.md` or the like), and the author
 changed the code accordingly in a later commit of the same pull request. Keep only comments that
-wrong behaviour or a written convention backs: a remark of taste, on naming or design, is one the
-reviewer is asked not to make.
+wrong behaviour or a written convention backs, and that the human reviewer meant as required: a
+remark of taste, on naming or design, or one its author labelled minor ("nitpick", "nit", "if you
+want"), is one the reviewer is not expected to make.
 
 1. Among reviewed pull requests, read the comments on lines (`pulls/<number>/comments`) for one
    that points out wrong behaviour or asks for what a written convention prescribes, followed by
