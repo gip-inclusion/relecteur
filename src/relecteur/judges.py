@@ -62,7 +62,7 @@ class AlbertJudge:
 
     model: Model
 
-    def __call__(self, finding: Finding, defect: ExpectedDefect) -> float:
+    def probability(self, finding: Finding, defect: ExpectedDefect) -> float:
         response = _post(
             f"{self.model.url.rstrip('/')}/chat/completions",
             self.model.api_key,
@@ -92,7 +92,7 @@ class JevJudge:
     model: str
     api_key: str = field(repr=False)
 
-    def __call__(self, finding: Finding, defect: ExpectedDefect) -> float:
+    def probability(self, finding: Finding, defect: ExpectedDefect) -> float:
         response = _post(
             _JEV_URL,
             self.api_key,

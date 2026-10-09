@@ -4,22 +4,29 @@ import pytest
 
 from relecteur.cases import Case, ExpectedDefect, ForbiddenRemark
 from relecteur.review import Finding, Review
-from relecteur.scorer import DefectResult, JudgeUnavailable, Matching, Outcome, evaluate, score
+from relecteur.scorer import (
+    DefectFinder,
+    DefectResult,
+    JudgeUnavailable,
+    Outcome,
+    evaluate,
+    score,
+)
 
 
 class FixedJudge:
     """Gives the same probability to every question, and remembers the questions."""
 
-    def __init__(self, probability):
-        self.probability = probability
+    def __init__(self, answer):
+        self.answer = answer
         self.questions = []
 
-    def __call__(self, finding, defect):
+    def probability(self, finding, defect):
         self.questions.append((finding, defect))
-        return self.probability
+        return self.answer
 
 
-CONFIRMING = Matching(FixedJudge(1.0))
+CONFIRMING = DefectFinder(FixedJudge(1.0))
 
 APPROVED_PULL_REQUEST = Case(
     name="pr-1-approved-without-comment",
@@ -160,7 +167,7 @@ FIXED_AFTER_APPROVAL = replace(
 def test_a_defect_is_found_when_the_judge_confirms_a_finding_at_its_line():
     remark = finding(line=42, text="The discount is applied again on every recomputation.")
 
-    result = score(FIXED_AFTER_APPROVAL, Review(findings=(remark,)), Matching(FixedJudge(0.9)))
+    result = score(FIXED_AFTER_APPROVAL, Review(findings=(remark,)), DefectFinder(FixedJudge(0.9)))
 
     assert result.outcome is Outcome.PASSED
     assert result.defects == (
@@ -171,7 +178,7 @@ def test_a_defect_is_found_when_the_judge_confirms_a_finding_at_its_line():
 def test_a_defect_is_missed_when_the_judge_rejects_the_finding_at_its_line():
     remark = finding(line=42, text="Rename `total` to `amount`.")
 
-    result = score(FIXED_AFTER_APPROVAL, Review(findings=(remark,)), Matching(FixedJudge(0.1)))
+    result = score(FIXED_AFTER_APPROVAL, Review(findings=(remark,)), DefectFinder(FixedJudge(0.1)))
 
     assert result.outcome is Outcome.FAILED
     assert result.reasons == (
@@ -184,7 +191,7 @@ def test_the_judge_is_never_asked_about_findings_in_another_file_or_far_from_the
     judge = FixedJudge(1.0)
     elsewhere = (finding(path="src/invoice.py", line=42), finding(path="src/billing.py", line=10))
 
-    result = score(FIXED_AFTER_APPROVAL, Review(findings=elsewhere), Matching(judge))
+    result = score(FIXED_AFTER_APPROVAL, Review(findings=elsewhere), DefectFinder(judge))
 
     assert result.outcome is Outcome.FAILED
     assert judge.questions == []
@@ -209,7 +216,7 @@ def test_the_judge_is_never_asked_about_findings_in_another_file_or_far_from_the
 )
 def test_a_finding_is_judged_only_within_the_line_tolerance(start_line, end_line, found):
     remark = Finding("src/billing.py", start_line, end_line, "The discount is applied twice.")
-    within_three_lines = Matching(FixedJudge(1.0), line_tolerance=3)
+    within_three_lines = DefectFinder(FixedJudge(1.0), line_tolerance=3)
 
     result = score(FIXED_AFTER_APPROVAL, Review(findings=(remark,)), within_three_lines)
 
@@ -224,13 +231,13 @@ def test_a_defect_spread_over_several_lines_is_judged_near_any_of_them(line, ask
     double_lookup = replace(DISCOUNT_APPLIED_TWICE, lines=(28, 35))
     case = replace(FIXED_AFTER_APPROVAL, expected_defects=(double_lookup,))
 
-    score(case, Review(findings=(finding(line=line),)), Matching(judge))
+    score(case, Review(findings=(finding(line=line),)), DefectFinder(judge))
 
     assert bool(judge.questions) is asked
 
 
 def test_without_tolerance_a_finding_must_cover_the_line_of_the_defect():
-    exact = Matching(FixedJudge(1.0), line_tolerance=0)
+    exact = DefectFinder(FixedJudge(1.0), line_tolerance=0)
     review = Review(findings=(finding(line=43),))
 
     result = score(FIXED_AFTER_APPROVAL, review, exact)
@@ -242,7 +249,7 @@ def test_without_tolerance_a_finding_must_cover_the_line_of_the_defect():
     ("probability", "found"), [(0.8, True), (0.79, False)], ids=["at the threshold", "below it"]
 )
 def test_the_judge_confirms_a_defect_from_the_threshold_on(probability, found):
-    demanding = Matching(FixedJudge(probability), threshold=0.8)
+    demanding = DefectFinder(FixedJudge(probability), threshold=0.8)
 
     result = score(FIXED_AFTER_APPROVAL, Review(findings=(finding(line=42),)), demanding)
 
@@ -250,14 +257,14 @@ def test_the_judge_confirms_a_defect_from_the_threshold_on(probability, found):
 
 
 class UnavailableJudge:
-    def __call__(self, finding, defect):
+    def probability(self, finding, defect):
         raise JudgeUnavailable("judge unavailable: overloaded (HTTP 503)")
 
 
 def test_an_unavailable_judge_is_an_error_and_not_a_verdict():
     review = Review(findings=(finding(line=42),))
 
-    result = score(FIXED_AFTER_APPROVAL, review, Matching(UnavailableJudge()))
+    result = score(FIXED_AFTER_APPROVAL, review, DefectFinder(UnavailableJudge()))
 
     assert result.outcome is Outcome.ERROR
     assert result.reasons == ("judge unavailable: overloaded (HTTP 503)",)

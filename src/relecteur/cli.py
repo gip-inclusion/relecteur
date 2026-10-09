@@ -11,7 +11,13 @@ from relecteur.cases import InvalidCases, load_cases
 from relecteur.model import MissingApiKey, Model, endpoint_url
 from relecteur.repository import CASES
 from relecteur.review import Review
-from relecteur.scorer import DEFAULT_LINE_TOLERANCE, DEFAULT_THRESHOLD, Matching, Outcome, evaluate
+from relecteur.scorer import (
+    DEFAULT_LINE_TOLERANCE,
+    DEFAULT_THRESHOLD,
+    DefectFinder,
+    Outcome,
+    evaluate,
+)
 
 EXIT_CODES = {Outcome.PASSED: 0, Outcome.FAILED: 1, Outcome.ERROR: 3}
 INVALID_INPUT = 2
@@ -118,7 +124,7 @@ def _eval(arguments):
             case: _review(case, repo, replace(model, url=relay_url), engine) for case in cases
         }
     report = evaluate(
-        cases, reviews, Matching(judge, arguments.line_tolerance, arguments.judge_threshold)
+        cases, reviews, DefectFinder(judge, arguments.line_tolerance, arguments.judge_threshold)
     )
     _print(report, reviews)
     return EXIT_CODES[report.outcome]

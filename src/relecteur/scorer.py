@@ -4,15 +4,19 @@ Pure: the reviews are given, never fetched, and the judge of expected defects is
 scoring itself reaches no network, repository or model.
 """
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
+from typing import Protocol
 
 from relecteur.cases import Case, ExpectedDefect
 from relecteur.review import Finding, Review
 
-Judge = Callable[[Finding, ExpectedDefect], float]
-"""Gives the probability that a finding describes an expected defect."""
+
+class Judge(Protocol):
+    def probability(self, finding: Finding, defect: ExpectedDefect) -> float:
+        """The probability that the finding points out the expected defect."""
+        ...
 
 
 class JudgeUnavailable(Exception):
@@ -21,20 +25,6 @@ class JudgeUnavailable(Exception):
 
 DEFAULT_LINE_TOLERANCE = 5
 DEFAULT_THRESHOLD = 0.5
-
-
-@dataclass(frozen=True)
-class Matching:
-    """How a finding is matched to an expected defect.
-
-    A finding of the defect's file, within `line_tolerance` lines of one of its lines, is asked to
-    the judge; any other finding never is. The defect is found from a probability of `threshold`
-    on.
-    """
-
-    judge: Judge
-    line_tolerance: int = DEFAULT_LINE_TOLERANCE
-    threshold: float = DEFAULT_THRESHOLD
 
 
 class Outcome(Enum):
@@ -54,6 +44,36 @@ class DefectResult:
 
 
 @dataclass(frozen=True)
+class DefectFinder:
+    """Finds, among the findings of a review, the one that points out an expected defect.
+
+    A finding of the defect's file, within `line_tolerance` lines of one of its lines, is asked to
+    the judge; any other finding never is. The defect is found from a probability of `threshold`
+    on.
+    """
+
+    judge: Judge
+    line_tolerance: int = DEFAULT_LINE_TOLERANCE
+    threshold: float = DEFAULT_THRESHOLD
+
+    def result(self, defect: ExpectedDefect, findings: Sequence[Finding]) -> DefectResult:
+        answers = [
+            (self.judge.probability(finding, defect), finding)
+            for finding in findings
+            if self._near(finding, defect)
+        ]
+        if not answers:
+            return DefectResult(defect, found=False)
+        probability, finding = max(answers, key=lambda answer: answer[0])
+        return DefectResult(defect, probability >= self.threshold, finding, probability)
+
+    def _near(self, finding, defect):
+        first = finding.start_line - self.line_tolerance
+        last = finding.end_line + self.line_tolerance
+        return finding.path == defect.path and any(first <= line <= last for line in defect.lines)
+
+
+@dataclass(frozen=True)
 class CaseResult:
     case: Case
     outcome: Outcome
@@ -68,15 +88,15 @@ class Report:
     outcome: Outcome
 
 
-def evaluate(cases: Sequence[Case], reviews: Mapping[Case, Review], matching: Matching) -> Report:
+def evaluate(cases: Sequence[Case], reviews: Mapping[Case, Review], finder: DefectFinder) -> Report:
     """Scores every case; only silence cases decide the verdict, defect cases are reported."""
-    results = tuple(score(case, reviews[case], matching) for case in cases)
+    results = tuple(score(case, reviews[case], finder) for case in cases)
     return Report(
         results, _verdict(result for result in results if not result.case.expected_defects)
     )
 
 
-def score(case: Case, review: Review, matching: Matching) -> CaseResult:
+def score(case: Case, review: Review, finder: DefectFinder) -> CaseResult:
     if review.error:
         return CaseResult(case, Outcome.ERROR, reasons=(review.error,))
     if review.unfinished:
@@ -91,9 +111,7 @@ def score(case: Case, review: Review, matching: Matching) -> CaseResult:
         if any(_repeats(finding, remark) for finding in review.findings)
     ]
     try:
-        defects = tuple(
-            _defect_result(defect, review.findings, matching) for defect in case.expected_defects
-        )
+        defects = tuple(finder.result(defect, review.findings) for defect in case.expected_defects)
     except JudgeUnavailable as error:
         return CaseResult(case, Outcome.ERROR, review.findings, (str(error),))
     reasons += [
@@ -107,25 +125,6 @@ def score(case: Case, review: Review, matching: Matching) -> CaseResult:
         review.findings,
         tuple(reasons),
         defects,
-    )
-
-
-def _defect_result(defect, findings, matching):
-    answers = [
-        (matching.judge(finding, defect), finding)
-        for finding in findings
-        if _near(finding, defect, matching.line_tolerance)
-    ]
-    if not answers:
-        return DefectResult(defect, found=False)
-    probability, finding = max(answers, key=lambda answer: answer[0])
-    return DefectResult(defect, probability >= matching.threshold, finding, probability)
-
-
-def _near(finding, defect, tolerance):
-    return finding.path == defect.path and any(
-        finding.start_line - tolerance <= line <= finding.end_line + tolerance
-        for line in defect.lines
     )
 
 
