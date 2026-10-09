@@ -145,7 +145,7 @@ exits with:
 | 3 | No verdict: no silence case failed, but one could not be reviewed: model unavailable (overload, quota reached, timeout), engine missing, or a pull request with no file the engine reviews. |
 
 Each case's line tells how long its review took, pauses included, and the tokens the model
-consumed, and the report ends with their total.
+consumed, and the report ends with their total and their average per review.
 
 Only silence cases decide the verdict: a remark on a sound pull request is a regression of the
 reviewer, a missed defect is not. Defect cases are reported, with the defects found and among

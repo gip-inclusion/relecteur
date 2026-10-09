@@ -191,9 +191,7 @@ def _print(report, reviews):
                 [defect_result for result in defect_cases for defect_result in result.defects]
             )
         )
-    seconds = _sum(review.seconds for review in reviews.values())
-    tokens = _sum(review.tokens for review in reviews.values())
-    print(f"cost: {_cost(seconds, tokens) or 'unknown'}")
+    print(f"cost: {_total_cost([review for review in reviews.values() if review.seconds])}")
     print(f"verdict: {report.outcome.name}")
 
 
@@ -205,6 +203,17 @@ def _cost(seconds, tokens):
     if tokens is not None:
         parts.append(f"{_token_count(tokens)} tokens")
     return ", ".join(parts)
+
+
+def _total_cost(reviews):
+    if not reviews:
+        return "unknown"
+    seconds = sum(review.seconds for review in reviews)
+    tokens = _sum(review.tokens for review in reviews)
+    average = _cost(
+        seconds / len(reviews), None if tokens is None else round(tokens / len(reviews))
+    )
+    return f"{_cost(seconds, tokens)} for {len(reviews)} review(s), {average} per review on average"
 
 
 def _token_count(tokens):
