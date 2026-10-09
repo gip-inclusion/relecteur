@@ -29,12 +29,16 @@ def test_the_engine_comments_become_normalized_findings():
                 start_line=21,
                 end_line=23,
                 text=SLACK_REMARK,
+                category="maintainability",
+                severity="low",
             ),
             Finding(
                 path="app/jobs/alert_user_added_to_another_department_job.rb",
                 start_line=33,
                 end_line=35,
                 text=SLACK_REMARK,
+                category="maintainability",
+                severity="low",
             ),
         ),
         tokens=9690,
@@ -132,3 +136,34 @@ def test_a_review_cut_short_by_anything_else_is_not_resumed(output):
 )
 def test_a_review_tells_the_tokens_the_model_consumed_even_when_cut_short(output, tokens):
     assert parse(output).tokens == tokens
+
+
+def test_the_settings_of_the_configuration_file_override_the_defaults(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('effort = "medium"\nlanguage = "French"\n')
+
+    assert open_code_review.load_settings(path) == open_code_review.Settings(
+        effort="medium", language="French"
+    )
+
+
+def test_without_a_configuration_file_the_settings_are_the_defaults(tmp_path):
+    assert open_code_review.load_settings(tmp_path / "config.toml") == open_code_review.Settings()
+
+
+@pytest.mark.parametrize(
+    ("content", "problem"),
+    [
+        ('efort = "medium"', "unknown setting 'efort'"),
+        ('effort = "maximum"', "'effort' must be one of low, medium, high, got 'maximum'"),
+        ("max_tokens_budget = -1", "'max_tokens_budget' must be a positive integer, got -1"),
+    ],
+)
+def test_a_wrong_setting_is_refused_with_its_file_and_problem(tmp_path, content, problem):
+    path = tmp_path / "config.toml"
+    path.write_text(content)
+
+    with pytest.raises(open_code_review.InvalidSettings) as error:
+        open_code_review.load_settings(path)
+
+    assert str(error.value) == f"{path}: {problem}"

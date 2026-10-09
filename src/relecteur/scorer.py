@@ -47,9 +47,9 @@ class DefectResult:
 class DefectFinder:
     """Finds, among the findings of a review, the one that points out an expected defect.
 
-    A finding of the defect's file, within `line_tolerance` lines of one of its lines, is asked to
-    the judge; any other finding never is. The defect is found from a probability of `threshold`
-    on.
+    A finding within `line_tolerance` lines of one of the defect's lines, in its file or in one of
+    the other files where it shows, is asked to the judge; any other finding never is. The defect
+    is found from a probability of `threshold` on.
     """
 
     judge: Judge
@@ -70,7 +70,10 @@ class DefectFinder:
     def _near(self, finding, defect):
         first = finding.start_line - self.line_tolerance
         last = finding.end_line + self.line_tolerance
-        return finding.path == defect.path and any(first <= line <= last for line in defect.lines)
+        return any(
+            finding.path == location.path and any(first <= line <= last for line in location.lines)
+            for location in defect.locations
+        )
 
 
 @dataclass(frozen=True)

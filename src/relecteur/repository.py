@@ -5,6 +5,9 @@ from pathlib import Path
 from dotenv import dotenv_values
 
 CASES = Path(".relecteur", "cases")
+CONFIG = Path(".relecteur", "config.toml")
+# How the reviewer behaves, then the team's code conventions.
+REVIEWER_INSTRUCTIONS = ("REVIEW.md", "AGENTS.md")
 
 
 class RepositoryError(Exception):
@@ -32,6 +35,19 @@ def environment(repo: Path, environ: Mapping[str, str]) -> dict[str, str]:
     """
     values = dotenv_values(repo / ".env")
     return {**{name: value for name, value in values.items() if value is not None}, **environ}
+
+
+def reviewer_instructions(repo: Path) -> str | None:
+    """REVIEW.md followed by AGENTS.md, as far as the repository has them, in their current state.
+
+    Without either, there are none: the engine then reviews by its own rules.
+    """
+    texts = [
+        (repo / name).read_text(encoding="utf-8").strip()
+        for name in REVIEWER_INSTRUCTIONS
+        if (repo / name).is_file()
+    ]
+    return "\n\n".join(text for text in texts if text) or None
 
 
 def ensure_commits(repo: Path, *commits: str) -> None:

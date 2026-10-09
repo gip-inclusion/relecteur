@@ -1,4 +1,4 @@
 pull_request = "https://forge.example/team/app/pull/1"
-description = "Approved without a single comment: the reviewer should stay silent."
+notes = "Approved without a single comment: the reviewer should stay silent."
 base = "b2f7f9a327f098f6ef64d91d13c193353d92ab5d"
 max_findings = 0

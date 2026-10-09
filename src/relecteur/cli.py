@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import sys
 from collections import Counter
@@ -9,8 +10,9 @@ from pathlib import Path
 from relecteur import judges, open_code_review, proxy, repository
 from relecteur.cases import InvalidCases, load_cases
 from relecteur.model import MissingApiKey, Model, endpoint_url
-from relecteur.repository import CASES
-from relecteur.review import Review
+from relecteur.open_code_review import InvalidSettings
+from relecteur.repository import CASES, CONFIG
+from relecteur.review import Review, load, save
 from relecteur.scorer import (
     DEFAULT_LINE_TOLERANCE,
     DEFAULT_THRESHOLD,
@@ -29,56 +31,50 @@ def main(argv: list[str] | None = None) -> int:
 
     eval_command = commands.add_parser("eval", help="replay the cases and give a verdict")
     eval_command.add_argument(
-        "cases", type=Path, nargs="?", help=f"a case file or directory (default: {CASES})"
+        "cases", type=Path, nargs="*", help=f"case files or directories (default: {CASES})"
     )
     eval_command.add_argument(
         "--model", help="model name (default: $RELECTEUR_MODEL, then Albert's)"
     )
     eval_command.add_argument("--model-url", help="OpenAI-compatible endpoint (default: Albert)")
     eval_command.add_argument(
-        "--judge",
-        choices=sorted(judges.DEFAULT_MODELS),
-        default="albert",
-        help="judge of expected defects (default: albert)",
+        "--save-reviews",
+        type=Path,
+        metavar="DIR",
+        help="write each review to DIR/<case>.json, for `relecteur score` to judge it again",
     )
-    eval_command.add_argument(
-        "--judge-model",
-        help="model of the judge (default: "
-        + ", ".join(f"{model} for {judge}" for judge, model in judges.DEFAULT_MODELS.items())
-        + ")",
-    )
-    eval_command.add_argument(
-        "--judge-threshold",
-        type=_probability,
-        default=DEFAULT_THRESHOLD,
-        help=f"probability from which the judge confirms a defect (default: {DEFAULT_THRESHOLD})",
-    )
-    eval_command.add_argument(
-        "--line-tolerance",
-        type=_line_count,
-        default=DEFAULT_LINE_TOLERANCE,
-        help="lines between a finding and an expected defect for the judge to be asked "
-        f"(default: {DEFAULT_LINE_TOLERANCE})",
-    )
+    _add_scoring_arguments(eval_command)
 
     defaults = open_code_review.Settings()
     eval_command.add_argument(
         "--effort",
         choices=open_code_review.EFFORTS,
-        default=defaults.effort,
-        help=f"review effort preset of the engine (default: {defaults.effort})",
+        help=f"review effort preset of the engine (default: {CONFIG}, then {defaults.effort})",
     )
     eval_command.add_argument(
         "--concurrency",
         type=_concurrency,
-        default=defaults.concurrency,
         help="groups of files the engine reviews at once, each sending its own requests to the "
-        f"model (default: {defaults.concurrency})",
+        f"model (default: {CONFIG}, then {defaults.concurrency})",
     )
+
+    score_command = commands.add_parser(
+        "score", help="judge again the reviews saved by `eval --save-reviews`, without reviewing"
+    )
+    score_command.add_argument("reviews", type=Path, help="directory of the saved reviews")
+    score_command.add_argument(
+        "cases", type=Path, nargs="*", help=f"case files or directories (default: {CASES})"
+    )
+    _add_scoring_arguments(score_command)
 
     validate_command = commands.add_parser("validate", help="check the format of case files")
     validate_command.add_argument(
         "paths", type=Path, nargs="*", help=f"case files or directories (default: {CASES})"
+    )
+
+    commands.add_parser(
+        "rule",
+        help="print the engine rule file that combines the repository's REVIEW.md and AGENTS.md",
     )
 
     proxy_command = commands.add_parser("proxy", help="relay the model endpoint for an engine run")
@@ -88,9 +84,41 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
     if arguments.command == "validate":
         return _validate(arguments.paths)
+    if arguments.command == "rule":
+        return _rule()
+    if arguments.command == "score":
+        return _score(arguments)
     if arguments.command == "proxy":
         return _proxy(arguments.port, endpoint_url(os.environ, arguments.model_url))
     return _eval(arguments)
+
+
+def _add_scoring_arguments(command):
+    command.add_argument(
+        "--judge",
+        choices=sorted(judges.DEFAULT_MODELS),
+        default="albert",
+        help="judge of expected defects (default: albert)",
+    )
+    command.add_argument(
+        "--judge-model",
+        help="model of the judge (default: "
+        + ", ".join(f"{model} for {judge}" for judge, model in judges.DEFAULT_MODELS.items())
+        + ")",
+    )
+    command.add_argument(
+        "--judge-threshold",
+        type=_probability,
+        default=DEFAULT_THRESHOLD,
+        help=f"probability from which the judge confirms a defect (default: {DEFAULT_THRESHOLD})",
+    )
+    command.add_argument(
+        "--line-tolerance",
+        type=_line_count,
+        default=DEFAULT_LINE_TOLERANCE,
+        help="lines between a finding and an expected defect for the judge to be asked "
+        f"(default: {DEFAULT_LINE_TOLERANCE})",
+    )
 
 
 def _validate(paths):
@@ -105,29 +133,133 @@ def _validate(paths):
 
 def _eval(arguments):
     try:
-        path = arguments.cases or repository.cases_directory(Path.cwd())
-        cases = load_cases(path)
-        repo = repository.root(path).resolve()
-        environ = repository.environment(repo, os.environ)
+        paths, cases, repo, environ = _cases(arguments.cases)
         model = Model.from_environment(environ, arguments.model_url, arguments.model)
         judge = judges.from_environment(environ, arguments.judge, arguments.judge_model, model)
-    except (InvalidCases, MissingApiKey, repository.RepositoryError) as error:
+        engine = _settings(repo, arguments)
+    except (InvalidCases, InvalidSettings, MissingApiKey, repository.RepositoryError) as error:
+        print(error, file=sys.stderr)
+        return INVALID_INPUT
+    instructions = repository.reviewer_instructions(repo)
+    print(
+        f"{len(cases)} case(s) in {', '.join(str(path) for path in paths)}, reviewed by "
+        f"{model.name} at {model.url}\nengine: {_describe(engine)}; "
+        f"{_rules_followed(repo, instructions)}",
+        flush=True,
+    )
+    if arguments.save_reviews:
+        arguments.save_reviews.mkdir(parents=True, exist_ok=True)
+        _save_reviewer(model, arguments.save_reviews)
+    reviews = {}
+    with proxy.relaying(model.url) as relay_url:
+        for case in cases:
+            reviews[case] = _review(case, repo, replace(model, url=relay_url), engine, instructions)
+            if arguments.save_reviews:
+                save(reviews[case], arguments.save_reviews / f"{case.name}.json")
+    return _report(cases, reviews, judge, arguments)
+
+
+def _score(arguments):
+    try:
+        paths, cases, _, environ = _cases(arguments.cases)
+        reviewer = _saved_reviewer(arguments.reviews, environ)
+        judge = judges.from_environment(environ, arguments.judge, arguments.judge_model, reviewer)
+    except (InvalidCases, InvalidReviews, MissingApiKey, repository.RepositoryError) as error:
         print(error, file=sys.stderr)
         return INVALID_INPUT
     print(
-        f"{len(cases)} case(s) in {path}, reviewed by {model.name} at {model.url}",
+        f"{len(cases)} case(s) in {', '.join(str(path) for path in paths)}, reviewed by "
+        f"{reviewer.name} at {reviewer.url}, as saved in {arguments.reviews}",
         flush=True,
     )
-    engine = open_code_review.Settings(arguments.effort, arguments.concurrency)
-    with proxy.relaying(model.url) as relay_url:
-        reviews = {
-            case: _review(case, repo, replace(model, url=relay_url), engine) for case in cases
-        }
+    reviews = {case: _saved_review(arguments.reviews / f"{case.name}.json") for case in cases}
+    return _report(cases, reviews, judge, arguments)
+
+
+def _rule():
+    try:
+        repo = repository.root(Path.cwd())
+    except repository.RepositoryError as error:
+        print(error, file=sys.stderr)
+        return INVALID_INPUT
+    instructions = repository.reviewer_instructions(repo)
+    if not instructions:
+        neither = " nor ".join(repository.REVIEWER_INSTRUCTIONS)
+        print(f"no {neither} in {repo}: the engine keeps its own rules", file=sys.stderr)
+    print(json.dumps(open_code_review.rule_file(instructions), indent=2, ensure_ascii=False))
+    return 0
+
+
+def _cases(paths):
+    """The cases of the given files or directories, or of the repository's, with the repository
+    they belong to and its environment."""
+    paths = paths or [repository.cases_directory(Path.cwd())]
+    cases = load_cases(*paths)
+    repo = repository.root(paths[0]).resolve()
+    return paths, cases, repo, repository.environment(repo, os.environ)
+
+
+class InvalidReviews(Exception):
+    pass
+
+
+# Written next to the saved reviews: the model that made them, never its key.
+_REVIEWER = "reviewer.json"
+
+
+def _save_reviewer(model, directory):
+    reviewer = {"url": model.url, "name": model.name}
+    (directory / _REVIEWER).write_text(json.dumps(reviewer) + "\n", encoding="utf-8")
+
+
+def _saved_reviewer(directory, environ):
+    """The model that made the saved reviews, with the key the environment gives the reviewer."""
+    path = directory / _REVIEWER
+    if not path.is_file():
+        raise InvalidReviews(
+            f"{path} does not exist: save reviews with `relecteur eval --save-reviews`"
+        )
+    reviewer = json.loads(path.read_text(encoding="utf-8"))
+    return Model(reviewer["url"], reviewer["name"], environ.get("RELECTEUR_API_KEY", ""))
+
+
+def _report(cases, reviews, judge, arguments):
     report = evaluate(
         cases, reviews, DefectFinder(judge, arguments.line_tolerance, arguments.judge_threshold)
     )
     _print(report, reviews)
     return EXIT_CODES[report.outcome]
+
+
+def _settings(repo, arguments):
+    """The engine settings of the repository's configuration file, overridden by the call's."""
+    settings = open_code_review.load_settings(repo / CONFIG)
+    overrides = {
+        name: value
+        for name in ("effort", "concurrency")
+        if (value := getattr(arguments, name)) is not None
+    }
+    return replace(settings, **overrides)
+
+
+def _describe(settings):
+    budget = settings.max_tokens_budget
+    return (
+        f"effort {settings.effort}, {settings.concurrency} group(s) of files at once, "
+        f"{f'at most {_token_count(budget)} tokens' if budget else 'no token budget'} per review, "
+        f"findings in {settings.language or 'English'}"
+    )
+
+
+def _rules_followed(repo, instructions):
+    if not instructions:
+        return f"the engine's own rules, without {_joined(repository.REVIEWER_INSTRUCTIONS)}"
+    present = [name for name in repository.REVIEWER_INSTRUCTIONS if (repo / name).is_file()]
+    return f"rules of {_joined(present)}"
+
+
+def _joined(names):
+    return " and ".join(names) if len(names) < 3 else ", ".join(names[:-1]) + f" and {names[-1]}"
 
 
 def _proxy(port, upstream):
@@ -137,13 +269,21 @@ def _proxy(port, upstream):
     return 0
 
 
-def _review(case, repo, model, engine):
+def _review(case, repo, model, engine, instructions):
     print(f"reviewing {case.name} ({case.base[:10]}..{case.head[:10]})", file=sys.stderr)
     try:
         repository.ensure_commits(repo, case.base, case.head)
     except repository.RepositoryError as error:
         return Review(error=str(error))
-    return open_code_review.review(repo, case.base, case.head, model, engine)
+    return open_code_review.review(
+        repo, case.base, case.head, model, engine, case.pr and case.pr.text, instructions
+    )
+
+
+def _saved_review(path):
+    if not path.is_file():
+        return Review(error=f"no saved review at {path}")
+    return load(path)
 
 
 def _probability(text):
@@ -178,7 +318,9 @@ def _print(report, reviews):
         print(f"{result.outcome.name:<8} {result.case.name}{cost and f' ({cost})'}: {summary}")
         for finding in result.findings:
             text = finding.text.splitlines()[0] if finding.text else ""
-            print(f"         {finding.path}:{finding.start_line}: {text}")
+            labels = "/".join(label for label in (finding.category, finding.severity) if label)
+            location = f"{finding.path}:{finding.start_line}{labels and f' [{labels}]'}"
+            print(f"         {location}: {text}")
         for defect_result in result.defects:
             print(f"         {_defect_line(defect_result)}")
     silence = [result for result in report.results if not result.case.expected_defects]

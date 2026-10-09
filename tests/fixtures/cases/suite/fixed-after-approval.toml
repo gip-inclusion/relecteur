@@ -1,5 +1,5 @@
 pull_request = "https://forge.example/team/app/pull/3"
-description = "Approved by the maintainer, then fixed the next day because the discount was applied twice: the reviewer should flag it."
+notes = "Approved by the maintainer, then fixed the next day because the discount was applied twice: the reviewer should flag it."
 base = "998cd63cbb479eb61bd5627bc2f85e9fa2ceed62"
 head = "c60d880d88b54c21bf472ffae4b6d81c6f1997a5"
 max_findings = 2

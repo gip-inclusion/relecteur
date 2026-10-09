@@ -14,11 +14,21 @@ class ForbiddenRemark:
 
 
 @dataclass(frozen=True)
+class Location:
+    path: str
+    lines: tuple[int, ...]
+
+    def __str__(self) -> str:
+        return f"{self.path}:{','.join(str(line) for line in self.lines)}"
+
+
+@dataclass(frozen=True)
 class ExpectedDefect:
     """A defect the pull request introduced, which the change linked by `fix` corrected afterwards.
 
-    `lines` are where a reviewer may point it out, and `escaped_review` tells whether the human
-    review of the pull request let it through.
+    `lines` of `path` are where a reviewer may point it out, and `also_at` other files where it
+    shows, such as a caller the change breaks. `escaped_review` tells whether the human review of
+    the pull request let it through.
     """
 
     path: str
@@ -26,24 +36,47 @@ class ExpectedDefect:
     concept: str
     fix: str
     escaped_review: bool
+    also_at: tuple[Location, ...] = ()
+
+    @property
+    def locations(self) -> tuple[Location, ...]:
+        return (Location(self.path, self.lines), *self.also_at)
 
     @property
     def location(self) -> str:
-        return f"{self.path}:{','.join(str(line) for line in self.lines)}"
+        return ", ".join(str(location) for location in self.locations)
+
+
+@dataclass(frozen=True)
+class PullRequestText:
+    """The title and description of a pull request, as its author wrote them."""
+
+    title: str
+    description: str | None = None
+
+    @property
+    def text(self) -> str:
+        """What the reviewer reads as the author's intent: the title, then the description."""
+        return f"{self.title}\n\n{self.description}" if self.description else self.title
 
 
 @dataclass(frozen=True)
 class Case:
-    """A past pull request, frozen by its base and head commits, and what the reviewer should do."""
+    """A past pull request, frozen by its base and head commits, and what the reviewer should do.
+
+    `notes` tell the humans reading the case why it expects what it does; the reviewer never reads
+    them. It reads `pr`, the text of the pull request, as the author's intent.
+    """
 
     name: str
     pull_request: str
-    description: str
+    notes: str
     base: str
     head: str
     max_findings: int
     forbidden_remarks: tuple[ForbiddenRemark, ...] = ()
     expected_defects: tuple[ExpectedDefect, ...] = ()
+    pr: PullRequestText | None = None
 
 
 class InvalidCases(Exception):
@@ -84,7 +117,7 @@ def _load(path):
     return Case(
         name=path.stem,
         pull_request=data["pull_request"],
-        description=data["description"],
+        notes=data["notes"],
         base=data["base"],
         head=data["head"],
         max_findings=data["max_findings"],
@@ -94,20 +127,44 @@ def _load(path):
         expected_defects=tuple(
             _expected_defect(**defect) for defect in data.get("expected_defects", [])
         ),
+        pr=_pull_request_text(**data["pr"]) if "pr" in data else None,
     )
 
 
-def _expected_defect(line, **fields):
-    return ExpectedDefect(lines=tuple(line) if isinstance(line, list) else (line,), **fields)
+def _pull_request_text(title, description=None):
+    return PullRequestText(title.strip(), description.strip() if description else None)
+
+
+def _expected_defect(line, also_at=(), **fields):
+    return ExpectedDefect(
+        lines=_lines(line),
+        also_at=tuple(Location(other["path"], _lines(other["line"])) for other in also_at),
+        **fields,
+    )
+
+
+def _lines(line):
+    return tuple(line) if isinstance(line, list) else (line,)
 
 
 def _case_problems(data):
     problems = _problems(data, _CASE_FIELDS, _OPTIONAL_CASE_FIELDS)
-    for field, label, rules in _TABLES:
+    for field, label, rules, optional in _TABLES:
         items = data.get(field, [])
         if _is_list_of_tables(items):
             for number, item in enumerate(items, start=1):
-                problems += _problems(item, rules, {}, label=f"{label} {number}: ")
+                problems += _problems(item, rules, optional, label=f"{label} {number}: ")
+                others = item.get("also_at", []) if "also_at" in optional else []
+                if _is_list_of_tables(others):
+                    for other_number, other in enumerate(others, start=1):
+                        problems += _problems(
+                            other,
+                            _LOCATION_FIELDS,
+                            {},
+                            label=f"{label} {number}: other location {other_number}: ",
+                        )
+    if isinstance(pr := data.get("pr"), dict):
+        problems += _problems(pr, _PR_FIELDS, _OPTIONAL_PR_FIELDS, label="pr: ")
     defects, ceiling = data.get("expected_defects", []), data.get("max_findings")
     if isinstance(defects, list) and _is_count(ceiling) and ceiling < len(defects):
         problems.append(
@@ -159,33 +216,45 @@ def _is_boolean(value):
     return isinstance(value, bool)
 
 
+def _is_table(value):
+    return isinstance(value, dict)
+
+
 def _is_list_of_tables(value):
     return isinstance(value, list) and all(isinstance(item, dict) for item in value)
 
 
 _CASE_FIELDS = {
     "pull_request": (_is_text, "a non-empty string"),
-    "description": (_is_text, "a non-empty string"),
+    "notes": (_is_text, "a non-empty string"),
     "base": (_is_sha, "a full commit SHA"),
     "head": (_is_sha, "a full commit SHA"),
     "max_findings": (_is_count, "a non-negative integer"),
 }
 _OPTIONAL_CASE_FIELDS = {
+    "pr": (_is_table, "a table"),
     "forbidden_remarks": (_is_list_of_tables, "an array of tables"),
     "expected_defects": (_is_list_of_tables, "an array of tables"),
 }
+_PR_FIELDS = {"title": (_is_text, "a non-empty string")}
+_OPTIONAL_PR_FIELDS = {"description": (_is_text, "a non-empty string")}
 _REMARK_FIELDS = {
     "path": (_is_text, "a non-empty string"),
     "line": (_is_line_number, "a line number"),
     "concept": (_is_text, "a non-empty string"),
 }
+_LOCATION_FIELDS = {
+    "path": (_is_text, "a non-empty string"),
+    "line": (_is_line_or_lines, "a line number or a non-empty list of line numbers"),
+}
 _DEFECT_FIELDS = {
     **_REMARK_FIELDS,
-    "line": (_is_line_or_lines, "a line number or a non-empty list of line numbers"),
+    **_LOCATION_FIELDS,
     "fix": (_is_text, "a non-empty string"),
     "escaped_review": (_is_boolean, "true or false"),
 }
-_TABLES = (
-    ("forbidden_remarks", "forbidden remark", _REMARK_FIELDS),
-    ("expected_defects", "expected defect", _DEFECT_FIELDS),
+_OPTIONAL_DEFECT_FIELDS = {"also_at": (_is_list_of_tables, "an array of tables")}
+_TABLES: tuple[tuple[str, str, dict, dict], ...] = (
+    ("forbidden_remarks", "forbidden remark", _REMARK_FIELDS, {}),
+    ("expected_defects", "expected defect", _DEFECT_FIELDS, _OPTIONAL_DEFECT_FIELDS),
 )

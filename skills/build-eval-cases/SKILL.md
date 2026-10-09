@@ -45,10 +45,18 @@ A silence case is a pull request approved without any comment:
 
 ```toml
 pull_request = "https://github.com/gip-inclusion/rdv-insertion/pull/3390"
-description = "Removes Sentry alerts from two jobs and updates their specs. Approved by the maintainer on 2026-09-29 without any comment: the reviewer should stay silent."
+notes = "Removes Sentry alerts from two jobs and updates their specs. Approved by the maintainer on 2026-09-29 without any comment: the reviewer should stay silent."
 base = "b2f7f9a327f098f6ef64d91d13c193353d92ab5d"
 head = "38ed0cb00af75b0fd9b533521af64be6dd397be0"
 max_findings = 0
+
+[pr]
+title = "fix(sentry): stop sending business alerts to Sentry"
+description = '''
+## Contexte
+
+`AlertMotifCategoryHasChangedJob` et `AlertUserAddedToAnotherDepartmentJob` envoyaient leur alerte métier à la fois sur Slack et dans Sentry.
+'''
 ```
 
 A defect case is a pull request that introduced a defect a later commit fixed. Listing
@@ -56,7 +64,7 @@ A defect case is a pull request that introduced a defect a later commit fixed. L
 
 ```toml
 pull_request = "https://github.com/gip-inclusion/rdv-insertion/pull/3242"
-description = "Moves the check that a user has an identifier from a service into the User model. Approved by a teammate on 2026-03-12, then fixed by #3252 two days after the merge, because users imported from RDV-Solidarités could no longer be created: the reviewer should flag it."
+notes = "Moves the check that a user has an identifier from a service into the User model. Approved by a teammate on 2026-03-12, then fixed by #3252 two days after the merge, because users imported from RDV-Solidarités could no longer be created: the reviewer should flag it."
 base = "3cb0e646c8c743d276a320776cfeb367935511c0"
 head = "ed3b4ef257fb4b9c63753bb2cfe3430cad1a2be8"
 max_findings = 2
@@ -72,18 +80,21 @@ escaped_review = true
 | Field | Meaning |
 | --- | --- |
 | `pull_request` | The pull request's `html_url`. |
-| `description` | For humans only, never shown to the reviewer: what the pull request does, the facts that make it a case (approval date, fix and delay), and what the reviewer should do. |
+| `notes` | For humans only, never shown to the reviewer: what the pull request does, the facts that make it a case (approval date, fix and delay), and what the reviewer should do. |
+| `[pr]` | At the end of the file, the text of the pull request, which the reviewer reads as the author's intent, as it will in CI: `title` and `description` are the `title` and `body` that `pulls/<number>` returns, with `\r\n` turned into line breaks. Write `description` as a TOML literal multi-line string (`'''`), which keeps backslashes as they are, and leave it out when the body is empty. |
 | `base`, `head` | Full SHAs of the code the human reviewer read: the pull request's `base.sha` and `head.sha` (`gh api repos/<owner>/<repo>/pulls/<number>`), except for a defect caught in review. |
 | `max_findings` | `0` for a silence case; for a defect case, the number of expected defects plus one, which leaves room for one sound finding beside them. |
 | `path`, `line` | The file and the line the reviewer would comment on, numbered as in the `head` commit. The harness matches findings within a few lines of it: when the defect shows in several places of the file, such as a function and the call that fails, list each of them (`line = [14, 28, 35]`). |
+| `also_at` | Optional. Other files of the pull request where the defect shows, such as a caller the change breaks, each with its lines: `also_at = [{ path = "app/jobs/plan_job.rb", line = 2 }]`. |
 | `concept` | The defect in plain words, which a judge compares with the reviewer's findings: see "Writing the concept". |
 | `fix` | Link to the change that fixed the defect: its pull request (`https://github.com/<owner>/<repo>/pull/<number>`); its commit when it has none (`https://github.com/<owner>/<repo>/commit/<sha>`); for a defect caught in review, the fix commit within the pull request (`https://github.com/<owner>/<repo>/pull/<number>/commits/<sha>`). |
 | `escaped_review` | `true` when the human review let the defect through to the merge, `false` when a human reviewer flagged it and it was fixed within the pull request. |
 
-The format has one more field, `forbidden_remarks`, which the calibration of the reviewer
-fills from its wrong findings: history does not provide them, and your cases leave it out.
+The format has one more field, `forbidden_remarks`, which the maintainer fills from the reviewer's
+findings judged wrong during its calibration: history does not provide them, and your cases leave
+it out.
 
-Write `description` and `concept` in the language of the existing cases, English when there are
+Write `notes` and `concept` in the language of the existing cases, English when there are
 none. Name the file `pr-<number>-<what-it-does>.toml`, in a few kebab-case English words. A pull
 request with several defects is one case, with one `[[expected_defects]]` table per defect.
 

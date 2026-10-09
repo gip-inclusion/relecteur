@@ -48,11 +48,11 @@ def from_environment(
 def _albert_api_key(environ, reviewer):
     if api_key := environ.get("RELECTEUR_JUDGE_API_KEY"):
         return api_key
-    if reviewer.url == DEFAULT_URL:
+    if reviewer.url == DEFAULT_URL and reviewer.api_key:
         return reviewer.api_key
     raise MissingApiKey(
         "RELECTEUR_JUDGE_API_KEY is not set: it holds the Albert API key of the albert judge, "
-        f"needed since the reviewer is served by {reviewer.url}"
+        f"needed since Albert did not serve the reviewer, {reviewer.name}, with RELECTEUR_API_KEY"
     )
 
 

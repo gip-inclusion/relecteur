@@ -12,10 +12,10 @@ evaluates: that repository only provides case files.
 ## Prerequisites
 
 - Python 3.11 or later, and git 2.41 or later (open-code-review relies on its recent options).
-- The open-code-review CLI, version 1.12.11, which provides the `ocr` command:
+- The open-code-review CLI, version 1.12.13, which provides the `ocr` command:
 
   ```sh
-  npm install --global @alibaba-group/open-code-review@1.12.11
+  npm install --global @alibaba-group/open-code-review@1.12.13
   ```
 
 - An API key for the model endpoint, in `RELECTEUR_API_KEY`. The default model is served by
@@ -53,7 +53,7 @@ expected to stay silent.
 
 ```toml
 pull_request = "https://github.com/team/app/pull/1234"
-description = "Applies the discount before the total. Approved without any comment: the reviewer should stay silent."
+notes = "Applies the discount before the total. Approved without any comment: the reviewer should stay silent."
 base = "b2f7f9a327f098f6ef64d91d13c193353d92ab5d"
 head = "38ed0cb00af75b0fd9b533521af64be6dd397be0"
 max_findings = 0
@@ -62,22 +62,29 @@ max_findings = 0
 path = "src/billing.py"
 line = 42
 concept = "Asks to rename `total` although the name matches the invoice vocabulary."
+
+[pr]
+title = "Apply the discount before the total"
+description = '''
+The discount applied to the total with taxes, against the terms of sale.
+'''
 ```
 
 | Field | Meaning |
 | --- | --- |
 | `pull_request` | Link or identifier of the pull request, for the humans reading the case. |
-| `description` | What the reviewer is expected to do, and why. Read by humans only: it is never shown to the reviewer. |
+| `notes` | What the reviewer is expected to do, and why. Read by humans only: it is never shown to the reviewer. |
 | `base`, `head` | Full SHAs of the code a human reviewed: the pull request's base and head commits, or, for a defect a reviewer caught, the commit they commented on as `head`. |
 | `max_findings` | The case fails as soon as the reviewer makes more findings than this. |
-| `forbidden_remarks` | Optional. Remarks the reviewer must not make again: a finding covering `line` of `path` fails the case, whatever `max_findings` allows. |
+| `forbidden_remarks` | Optional. Remarks the reviewer must not make again, taken from its findings the maintainer judged wrong: a finding covering `line` of `path` fails the case, whatever `max_findings` allows. |
 | `expected_defects` | Optional. Defects the reviewer should flag, which makes the case a defect case: see below. |
+| `pr` | Optional, at the end of the file. The `title` and `description` of the pull request, as its author wrote them: the reviewer reads them as the intent of the change, as it will in CI. |
 
 A defect case is sourced in a fix commit, and describes each defect in plain words:
 
 ```toml
 pull_request = "https://github.com/team/app/pull/1234"
-description = "Applies the discount twice, fixed by #1240 the day after the merge: the reviewer should flag it."
+notes = "Applies the discount twice, fixed by #1240 the day after the merge: the reviewer should flag it."
 base = "b2f7f9a327f098f6ef64d91d13c193353d92ab5d"
 head = "38ed0cb00af75b0fd9b533521af64be6dd397be0"
 max_findings = 2
@@ -93,6 +100,7 @@ escaped_review = true
 | Field | Meaning |
 | --- | --- |
 | `path`, `line` | Where the defect is, in the `head` commit: a line, or a list of lines (`line = [28, 35]`) when a reviewer may point it out in several places, such as a function and its call. |
+| `also_at` | Optional. Other files where a reviewer may point the defect out, each with its lines: `also_at = [{ path = "src/invoice.py", line = 7 }]`. |
 | `concept` | The defect, in plain words: the judge compares it with the text of the findings. |
 | `fix` | Link to the change that fixed the defect, for the humans reading the case: its pull request, its commit when it has none, or, for a defect a reviewer caught, the fix commit within the pull request. |
 | `escaped_review` | Whether the human review of the pull request let the defect through, so that the report tells what the reviewer adds to the humans rather than how much it resembles them. |
@@ -131,8 +139,18 @@ relecteur eval          # review every case of .relecteur/cases and give a verdi
 ```
 
 Both commands read `.relecteur/cases` at the root of the repository by default, and stop with
-an explicit message when it does not exist. Pass a case file or directory to use another one:
+an explicit message when it does not exist. Pass case files or directories to use others:
 `relecteur eval .relecteur/cases/pr-1234.toml` replays a single case.
+
+Reviews vary from one run to the next, and a run takes long: `--save-reviews DIR` writes each
+review to `DIR/<case>.json` as soon as it ends, and the model that made them to
+`DIR/reviewer.json`; `relecteur score DIR` judges them again, with another judge or threshold,
+without reviewing anew. A case without a saved review is an error.
+
+```sh
+relecteur eval --save-reviews runs/1     # review, and keep the reviews
+relecteur score runs/1 --judge jev       # judge the same reviews again
+```
 
 `validate` exits with 1 when a case is invalid, naming each file and its problem. `eval`
 exits with:
@@ -174,7 +192,7 @@ The `albert` judge asks for a one-word answer, yes or no, and reads the probabil
 the logprobs of that word. It asks Albert whatever model reviews, so that reviewers are compared
 under the same judge: its API key is `RELECTEUR_JUDGE_API_KEY`, or `RELECTEUR_API_KEY` when
 Albert serves the reviewer too. The `jev` judge's
-request follows TypeSafe's System One API as RubyLLM implements it; it has not been run yet.
+request follows TypeSafe's System One API as RubyLLM implements it.
 
 A judge that cannot answer, model unavailable or answer unreadable, makes the case an error,
 never a missed defect.
@@ -196,12 +214,41 @@ The engine runs with an empty home directory, so that a personal open-code-revie
 configuration never overrides the model chosen here; git keeps the global configuration of
 the real home directory.
 
+### Reviewer instructions
+
+The reviewer follows the repository's `REVIEW.md`, how to review, then its `AGENTS.md`, the
+code conventions, as they are in the working tree: today's instructions are evaluated on past
+pull requests. The engine applies one rule per file, so `relecteur eval` combines the two files
+into a single rule on every file. The rule joins the engine's own rule for Python files, and
+replaces it elsewhere: the engine's rules for a few file types (Maven, Gradle, package.json…),
+and the default rule every other file gets, which leads the reviewer to remarks on naming and
+test coverage. With one of the two files, the rule is that file; with neither, the engine
+reviews by its own rules.
+
+`relecteur rule` prints that rule, in the engine's format, for CI to pass the same one to the
+engine; with neither file, it prints an empty rule, under which the engine keeps its own. The
+files the engine reviews are chosen by the repository's
+`.opencodereview/rule.json` (its `include` and `exclude` patterns), which the engine reads by
+itself.
+
 ### Engine settings
 
-| Option | Default | |
-| --- | --- | --- |
-| `--effort` | `high` | The engine's effort preset, `low`, `medium` or `high`: a higher one spends more rounds and tokens on each group of files. |
-| `--concurrency` | `2` | Groups of files the engine reviews at once. |
+The repository's `.relecteur/config.toml` sets the engine for `relecteur eval` and, through
+it, for CI; the options of `relecteur eval` override it.
+
+```toml
+effort = "high"
+concurrency = 2
+max_tokens_budget = 2000000
+language = "French"
+```
+
+| Setting | Option | Default | |
+| --- | --- | --- | --- |
+| `effort` | `--effort` | `high` | The engine's effort preset, `low`, `medium` or `high`: a higher one spends more rounds and tokens on each group of files. |
+| `concurrency` | `--concurrency` | `2` | Groups of files the engine reviews at once. |
+| `max_tokens_budget` | | none | Tokens a review may spend; the engine stops reviewing further files beyond it, and the review counts as not finished. |
+| `language` | | English | The language of the findings. |
 
 Each group sends its own requests to the model. Albert answers too many of them at once with
 HTTP 429, hence 2 groups at a time by default, which a model served without such limits can
@@ -243,6 +290,8 @@ python3 -m venv .venv
 
 The test suite needs no application repository, no network access and no model: tests
 that try to open a connection fail. The tests cover the scorer, with a deterministic judge, the
-case loader, the engine adapter, against engine outputs recorded or written from its source, the
-`albert` judge's reading of answers, recorded or built for an edge case, and the relay's rule for `tool_choice`. Running
-git, the engine, the judges and the relay itself is checked by real runs.
+case loader, the engine settings file, the combination of the reviewer instructions, saved
+reviews, the engine adapter, against engine outputs recorded or written from its source, the
+`albert` judge's reading of answers, recorded or built for an edge case, and the relay's rule
+for `tool_choice`. Running git, the engine, the judges and the relay itself is checked by real
+runs.

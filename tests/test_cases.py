@@ -2,7 +2,14 @@ from pathlib import Path
 
 import pytest
 
-from relecteur.cases import Case, ExpectedDefect, ForbiddenRemark, InvalidCases, load_cases
+from relecteur.cases import (
+    Case,
+    ExpectedDefect,
+    ForbiddenRemark,
+    InvalidCases,
+    Location,
+    load_cases,
+)
 
 CASES = Path(__file__).parent / "fixtures" / "cases"
 
@@ -14,7 +21,7 @@ def test_a_pull_request_approved_without_comment_is_loaded_from_its_file():
         Case(
             name="approved-without-comment",
             pull_request="https://forge.example/team/app/pull/1",
-            description="Approved by the maintainer without a single comment: "
+            notes="Approved by the maintainer without a single comment: "
             "the reviewer should stay silent.",
             base="b2f7f9a327f098f6ef64d91d13c193353d92ab5d",
             head="38ed0cb00af75b0fd9b533521af64be6dd397be0",
@@ -50,6 +57,21 @@ def test_a_defect_spread_over_several_lines_is_loaded_with_each_of_them():
     assert case.expected_defects[0].lines == (28, 35)
 
 
+def test_a_defect_that_also_shows_in_another_file_is_loaded_with_that_location():
+    [case] = load_cases(CASES / "suite" / "defect-over-two-lines.toml")
+
+    assert case.expected_defects[0].also_at == (Location(path="src/jobs.py", lines=(12,)),)
+
+
+def test_the_text_of_a_pull_request_is_its_title_then_its_description():
+    [case] = load_cases(CASES / "suite" / "thumbs-up-without-remark.toml")
+
+    assert case.pr.text == (
+        "Show the invoice total before taxes\n\n"
+        "The accountants asked to see it next to the total with taxes."
+    )
+
+
 def test_a_directory_holds_one_case_per_file():
     cases = load_cases(CASES / "suite")
 
@@ -69,6 +91,11 @@ def test_a_directory_holds_one_case_per_file():
         ("misspelled-field.toml", "unknown field 'max_finding'"),
         ("negative-ceiling.toml", "'max_findings' must be a non-negative integer, got -1"),
         ("not-toml.toml", "not valid TOML: "),
+        ("pr-without-title.toml", "pr: missing field 'title'"),
+        (
+            "other-location-without-path.toml",
+            "expected defect 1: other location 1: missing field 'path'",
+        ),
         ("remark-without-concept.toml", "forbidden remark 1: missing field 'concept'"),
         (
             "escaped-review-in-words.toml",

@@ -1,5 +1,5 @@
 pull_request = "https://forge.example/team/app/pull/3"
-description = "Approved, then fixed the next day: the reviewer should flag the defect."
+notes = "Approved, then fixed the next day: the reviewer should flag the defect."
 base = "998cd63cbb479eb61bd5627bc2f85e9fa2ceed62"
 head = "c60d880d88b54c21bf472ffae4b6d81c6f1997a5"
 max_findings = 0

@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import pytest
 
-from relecteur.cases import Case, ExpectedDefect, ForbiddenRemark
+from relecteur.cases import Case, ExpectedDefect, ForbiddenRemark, Location
 from relecteur.review import Finding, Review
 from relecteur.scorer import (
     DefectFinder,
@@ -31,7 +31,7 @@ CONFIRMING = DefectFinder(FixedJudge(1.0))
 APPROVED_PULL_REQUEST = Case(
     name="pr-1-approved-without-comment",
     pull_request="https://forge.example/team/app/pull/1",
-    description="Approved without a single comment: the reviewer should stay silent.",
+    notes="Approved without a single comment: the reviewer should stay silent.",
     base="1" * 40,
     head="2" * 40,
     max_findings=0,
@@ -232,6 +232,23 @@ def test_a_defect_spread_over_several_lines_is_judged_near_any_of_them(line, ask
     case = replace(FIXED_AFTER_APPROVAL, expected_defects=(double_lookup,))
 
     score(case, Review(findings=(finding(line=line),)), DefectFinder(judge))
+
+    assert bool(judge.questions) is asked
+
+
+@pytest.mark.parametrize(
+    ("path", "line", "asked"),
+    [("src/invoice.py", 8, True), ("src/invoice.py", 30, False), ("src/billing.py", 40, True)],
+    ids=["near the other location", "far from it", "near the first location"],
+)
+def test_a_defect_that_also_shows_in_another_file_is_judged_near_either_of_them(path, line, asked):
+    judge = FixedJudge(1.0)
+    also_in_the_invoice = replace(
+        DISCOUNT_APPLIED_TWICE, also_at=(Location(path="src/invoice.py", lines=(7,)),)
+    )
+    case = replace(FIXED_AFTER_APPROVAL, expected_defects=(also_in_the_invoice,))
+
+    score(case, Review(findings=(finding(path=path, line=line),)), DefectFinder(judge))
 
     assert bool(judge.questions) is asked
 
