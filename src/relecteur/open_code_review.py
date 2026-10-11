@@ -23,10 +23,10 @@ _COMPLETE = frozenset({"complete", "success", "completed_with_warnings"})
 # Failure classes of a model or an engine out of reach, rather than of an unfinished review.
 _UNAVAILABLE = frozenset({"provider", "timeout", "cancelled"})
 
-# A run cut short by the model's rate limit or by timeouts is resumed this many times, after
-# this pause.
+# A run cut short by the model's rate limit or by timeouts is resumed this many times, after a
+# pause that doubles from one resume to the next, for a per-minute rate limit to recover.
 _RESUMES = 3
-_RESUME_PAUSE_SECONDS = 60
+_FIRST_RESUME_PAUSE_SECONDS = 60
 
 EFFORTS = ("low", "medium", "high")
 
@@ -103,9 +103,9 @@ def review(
     own rules on every file; the files it reviews remain those the repository's
     `.opencodereview/rule.json` selects.
 
-    When the model's rate limit or timeouts cut the run short, it is resumed after a pause: the
-    engine then reviews the files left only, its session being kept in the home directory of the
-    review.
+    When the model's rate limit or timeouts cut the run short, it is resumed after a pause, longer
+    at each resume: the engine then reviews the files left only, its session being kept in the
+    home directory of the review.
     """
     command = ["ocr", "review", "--repo", str(repo), "--from", base, "--to", head]
     command += ["--effort", settings.effort, "--concurrency", str(settings.concurrency)]
@@ -129,12 +129,13 @@ def review(
             for attempt in range(1, _RESUMES + 1):
                 if not (session := session_to_resume(runs[-1].stdout)):
                     break
+                pause = _FIRST_RESUME_PAUSE_SECONDS * 2 ** (attempt - 1)
                 print(
-                    f"  cut short, resuming in {_RESUME_PAUSE_SECONDS} s ({attempt} of {_RESUMES})",
+                    f"  cut short, resuming in {pause} s ({attempt} of {_RESUMES})",
                     file=sys.stderr,
                     flush=True,
                 )
-                time.sleep(_RESUME_PAUSE_SECONDS)
+                time.sleep(pause)
                 runs.append(_run([*command, "--resume", session], model, home))
         except FileNotFoundError:
             return Review(error=f"open-code-review is not installed (ocr): {_INSTALL_COMMAND}")
