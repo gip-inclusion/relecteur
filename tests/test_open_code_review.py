@@ -117,6 +117,7 @@ def test_a_review_cut_short_by_a_timeout_is_an_error_without_findings():
     [
         ("rate-limited.json", "51bd43a9-3631-4302-9708-1581af54208f"),
         ("timed-out.json", "7e3b9c41-2d6a-4f8e-b5c0-91a4d2e6f310"),
+        ("request-timed-out.json", "7e3b9c41-2d6a-4f8e-b5c0-91a4d2e6f310"),
     ],
 )
 def test_a_review_cut_short_by_a_rate_limit_or_a_timeout_is_resumed_from_its_session(

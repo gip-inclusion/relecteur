@@ -176,8 +176,11 @@ def session_to_resume(stdout: str) -> str | None:
         if output["status"] in _COMPLETE or output["status"] == "skipped":
             return None
         classes = _failure_classes(output)
+        # A request that got no HTTP response, such as one that timed out, has no status code.
         status_codes = {attempt.get("status_code") for attempt in _last_failed_attempts(output)}
-        transient = bool(classes) and classes <= {"provider", "timeout"} and status_codes <= {429}
+        transient = (
+            bool(classes) and classes <= {"provider", "timeout"} and status_codes <= {429, None}
+        )
         return output.get("session_id") if transient else None
     except (json.JSONDecodeError, KeyError, TypeError):
         return None
