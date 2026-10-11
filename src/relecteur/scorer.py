@@ -45,27 +45,42 @@ class DefectResult:
 
 @dataclass(frozen=True)
 class DefectFinder:
-    """Finds, among the findings of a review, the one that points out an expected defect.
+    """Finds, among the findings of a review, those that point out the expected defects.
 
-    A finding within `line_tolerance` lines of one of the defect's lines, in its file or in one of
-    the other files where it shows, is asked to the judge; any other finding never is. The defect
-    is found from a probability of `threshold` on.
+    A finding within `line_tolerance` lines of one of a defect's lines, in its file or in one of
+    the other files where it shows, is asked to the judge; any other finding never is. A defect is
+    found from a probability of `threshold` on, and a finding finds one defect at most: the one
+    the judge is the most confident it describes.
     """
 
     judge: Judge
     line_tolerance: int = DEFAULT_LINE_TOLERANCE
     threshold: float = DEFAULT_THRESHOLD
 
-    def result(self, defect: ExpectedDefect, findings: Sequence[Finding]) -> DefectResult:
+    def results(
+        self, defects: Sequence[ExpectedDefect], findings: Sequence[Finding]
+    ) -> tuple[DefectResult, ...]:
         answers = [
-            (self.judge.probability(finding, defect), finding)
-            for finding in findings
+            (self.judge.probability(finding, defect), index, finding, defect)
+            for index, finding in enumerate(findings)
+            for defect in defects
             if self._near(finding, defect)
         ]
-        if not answers:
+        found: dict[ExpectedDefect, DefectResult] = {}
+        used = set()
+        for probability, index, finding, defect in sorted(answers, key=lambda a: -a[0]):
+            if probability >= self.threshold and defect not in found and index not in used:
+                found[defect] = DefectResult(defect, True, finding, probability)
+                used.add(index)
+        return tuple(found.get(defect) or self._missed(defect, answers) for defect in defects)
+
+    def _missed(self, defect, answers):
+        """A defect no finding was confirmed for, with the finding the judge rated highest."""
+        rated = [(probability, finding) for probability, _, finding, d in answers if d == defect]
+        if not rated:
             return DefectResult(defect, found=False)
-        probability, finding = max(answers, key=lambda answer: answer[0])
-        return DefectResult(defect, probability >= self.threshold, finding, probability)
+        probability, finding = max(rated, key=lambda answer: answer[0])
+        return DefectResult(defect, False, finding, probability)
 
     def _near(self, finding, defect):
         first = finding.start_line - self.line_tolerance
@@ -114,7 +129,7 @@ def score(case: Case, review: Review, finder: DefectFinder) -> CaseResult:
         if any(_repeats(finding, remark) for finding in review.findings)
     ]
     try:
-        defects = tuple(finder.result(defect, review.findings) for defect in case.expected_defects)
+        defects = finder.results(case.expected_defects, review.findings)
     except JudgeUnavailable as error:
         return CaseResult(case, Outcome.ERROR, review.findings, (str(error),))
     reasons += [

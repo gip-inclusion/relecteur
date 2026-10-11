@@ -321,8 +321,9 @@ def _print(report, reviews):
             labels = "/".join(label for label in (finding.category, finding.severity) if label)
             location = f"{finding.path}:{finding.start_line}{labels and f' [{labels}]'}"
             print(f"         {location}: {text}")
+        taken = {defect_result.finding for defect_result in result.defects if defect_result.found}
         for defect_result in result.defects:
-            print(f"         {_defect_line(defect_result)}")
+            print(f"         {_defect_line(defect_result, taken)}")
     silence = [result for result in report.results if not result.case.expected_defects]
     defect_cases = [result for result in report.results if result.case.expected_defects]
     print(f"\nsilence cases: {_counts(silence)}")
@@ -371,15 +372,22 @@ def _sum(values):
     return sum(known) if known else None
 
 
-def _defect_line(result):
+def _defect_line(result, taken):
+    """The defect, found or missed, and the finding the judge rated highest for it.
+
+    `taken` are the findings that found a defect of the case: a finding finds one at most.
+    """
     defect = result.defect
     status = "found" if result.found else "missed"
     escaped = ", which the human review let through" if defect.escaped_review else ""
     if result.finding is None:
         return f"{status} defect at {defect.location}{escaped}: no finding near it"
+    elsewhere = (
+        ", which found another defect" if not result.found and result.finding in taken else ""
+    )
     return (
         f"{status} defect at {defect.location}{escaped}: the judge gives "
-        f"{result.probability:.2f} to {result.finding.path}:{result.finding.start_line}"
+        f"{result.probability:.2f} to {result.finding.path}:{result.finding.start_line}{elsewhere}"
     )
 
 

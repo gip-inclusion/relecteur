@@ -273,6 +273,31 @@ def test_the_judge_confirms_a_defect_from_the_threshold_on(probability, found):
     assert result.defects[0].found is found
 
 
+class JudgeOfEachDefect:
+    """Gives each expected defect its own probability, whatever the finding."""
+
+    def __init__(self, answers):
+        self.answers = answers
+
+    def probability(self, finding, defect):
+        return self.answers[defect.concept]
+
+
+def test_a_finding_describing_two_expected_defects_finds_the_likelier_one_only():
+    sent_twice = replace(
+        DISCOUNT_APPLIED_TWICE,
+        lines=(45,),
+        concept="Sends the invoice twice when it is recomputed.",
+    )
+    case = replace(FIXED_AFTER_APPROVAL, expected_defects=(DISCOUNT_APPLIED_TWICE, sent_twice))
+    judge = JudgeOfEachDefect({DISCOUNT_APPLIED_TWICE.concept: 1.0, sent_twice.concept: 0.82})
+    remark = finding(line=43, text="The discount is applied again on every recomputation.")
+
+    result = score(case, Review(findings=(remark,)), DefectFinder(judge))
+
+    assert [defect_result.found for defect_result in result.defects] == [True, False]
+
+
 class UnavailableJudge:
     def probability(self, finding, defect):
         raise JudgeUnavailable("judge unavailable: overloaded (HTTP 503)")

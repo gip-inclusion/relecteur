@@ -179,7 +179,9 @@ reviews tests nothing, and gives no verdict either.
 
 A finding is matched to an expected defect in two steps. First, it must be in the defect's file,
 within a few lines of it; a finding anywhere else never reaches the judge. Then the judge tells
-the probability that the finding describes the defect, which is found from a threshold on.
+the probability that the finding describes the defect, which is found from a threshold on. A
+finding finds one defect at most, the one the judge is the most confident it describes: a remark
+on one defect never counts for a neighbouring one.
 
 | Option | Default | |
 | --- | --- | --- |
