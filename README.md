@@ -254,7 +254,9 @@ language = "French"
 
 Each group sends its own requests to the model. Albert answers too many of them at once with
 HTTP 429, hence 2 groups at a time by default, which a model served without such limits can
-raise. The engine retries a refused request, then gives up on its files, as it does on files
+raise. At high effort, each request carries the whole conversation of its group: on Albert, the
+largest pull requests only finish with 1 group at a time, which costs little time since the
+per-minute limit is what slows a review down. The engine retries a refused request, then gives up on its files, as it does on files
 that take longer than its timeout. When the rate limit or timeouts alone left files unreviewed,
 `relecteur eval` resumes the engine's session after 1, then 2, then 4 minutes, and the engine
 reviews the files left only. A case still incomplete afterwards gets no verdict.
