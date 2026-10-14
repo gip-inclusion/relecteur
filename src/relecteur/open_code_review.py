@@ -9,7 +9,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import tomllib
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -46,46 +45,6 @@ class Settings:
     concurrency: int = 2
     max_tokens_budget: int | None = None
     language: str | None = None
-
-
-class InvalidSettings(Exception):
-    pass
-
-
-def load_settings(path: Path) -> Settings:
-    """The settings of a TOML file, the defaults standing for those it leaves out.
-
-    Without such a file, the settings are all the defaults.
-    """
-    try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return Settings()
-    except tomllib.TOMLDecodeError as error:
-        raise InvalidSettings(f"{path}: not valid TOML: {error}") from error
-    for name, value in data.items():
-        if name not in _SETTINGS:
-            raise InvalidSettings(f"{path}: unknown setting '{name}'")
-        is_valid, expectation = _SETTINGS[name]
-        if not is_valid(value):
-            raise InvalidSettings(f"{path}: '{name}' must be {expectation}, got {value!r}")
-    return Settings(**data)
-
-
-def _is_positive(value):
-    return isinstance(value, int) and not isinstance(value, bool) and value >= 1
-
-
-def _is_text(value):
-    return isinstance(value, str) and bool(value.strip())
-
-
-_SETTINGS = {
-    "effort": (lambda value: value in EFFORTS, f"one of {', '.join(EFFORTS)}"),
-    "concurrency": (_is_positive, "a positive integer"),
-    "max_tokens_budget": (_is_positive, "a positive integer"),
-    "language": (_is_text, "a non-empty string"),
-}
 
 
 def review(
@@ -210,8 +169,11 @@ def _environment(model, home):
         "OCR_LLM_URL": model.url,
         "OCR_LLM_TOKEN": model.api_key,
         "OCR_LLM_MODEL": model.name,
-        "OCR_LLM_PROTOCOL": "openai",
+        "OCR_LLM_PROTOCOL": model.protocol,
     }
+    if model.protocol == "anthropic":
+        # Anthropic's API takes an API key in x-api-key, where the engine sends a bearer token.
+        environment["OCR_LLM_AUTH_HEADER"] = "x-api-key"
     environment.setdefault("XDG_CONFIG_HOME", str(Path.home() / ".config"))
     if (Path.home() / ".gitconfig").exists():
         environment.setdefault("GIT_CONFIG_GLOBAL", str(Path.home() / ".gitconfig"))

@@ -3,19 +3,18 @@ import json
 import os
 import sys
 from collections import Counter
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 from dataclasses import replace
 from pathlib import Path
 
-from relecteur import judges, open_code_review, proxy, repository
+from relecteur import config, judges, open_code_review, proxy, repository
 from relecteur.cases import InvalidCases, load_cases
-from relecteur.model import MissingApiKey, Model, endpoint_url
-from relecteur.open_code_review import InvalidSettings
+from relecteur.config import InvalidConfig
+from relecteur.model import DEFAULT_NAME, DEFAULT_URL, MissingApiKey, Model
 from relecteur.repository import CASES, CONFIG
 from relecteur.review import Review, load, save
 from relecteur.scorer import (
     DEFAULT_LINE_TOLERANCE,
-    DEFAULT_THRESHOLD,
     DefectFinder,
     Outcome,
     evaluate,
@@ -34,9 +33,13 @@ def main(argv: list[str] | None = None) -> int:
         "cases", type=Path, nargs="*", help=f"case files or directories (default: {CASES})"
     )
     eval_command.add_argument(
-        "--model", help="model name (default: $RELECTEUR_MODEL, then Albert's)"
+        "--model", help=f"model that reviews (default: {CONFIG}, then {DEFAULT_NAME})"
     )
-    eval_command.add_argument("--model-url", help="OpenAI-compatible endpoint (default: Albert)")
+    eval_command.add_argument(
+        "--model-url",
+        help=f"endpoint of the model, OpenAI-compatible or Anthropic's API (default: {CONFIG}, "
+        f"then {DEFAULT_URL})",
+    )
     eval_command.add_argument(
         "--save-reviews",
         type=Path,
@@ -79,7 +82,9 @@ def main(argv: list[str] | None = None) -> int:
 
     proxy_command = commands.add_parser("proxy", help="relay the model endpoint for an engine run")
     proxy_command.add_argument("--port", type=int, default=8765, help="local port (default: 8765)")
-    proxy_command.add_argument("--model-url", help="OpenAI-compatible endpoint (default: Albert)")
+    proxy_command.add_argument(
+        "--model-url", help=f"OpenAI-compatible endpoint (default: {DEFAULT_URL})"
+    )
 
     arguments = parser.parse_args(argv)
     if arguments.command == "validate":
@@ -89,28 +94,28 @@ def main(argv: list[str] | None = None) -> int:
     if arguments.command == "score":
         return _score(arguments)
     if arguments.command == "proxy":
-        return _proxy(arguments.port, endpoint_url(os.environ, arguments.model_url))
+        return _proxy(arguments.port, arguments.model_url or DEFAULT_URL)
     return _eval(arguments)
 
 
 def _add_scoring_arguments(command):
+    defaults = config.JudgeSettings()
     command.add_argument(
         "--judge",
         choices=sorted(judges.DEFAULT_MODELS),
-        default="albert",
-        help="judge of expected defects (default: albert)",
+        help=f"judge of expected defects (default: {CONFIG}, then {defaults.name})",
     )
     command.add_argument(
         "--judge-model",
-        help="model of the judge (default: "
+        help=f"model of the judge (default: {CONFIG}, then "
         + ", ".join(f"{model} for {judge}" for judge, model in judges.DEFAULT_MODELS.items())
         + ")",
     )
     command.add_argument(
         "--judge-threshold",
         type=_probability,
-        default=DEFAULT_THRESHOLD,
-        help=f"probability from which the judge confirms a defect (default: {DEFAULT_THRESHOLD})",
+        help="probability from which the judge confirms a defect "
+        f"(default: {CONFIG}, then {defaults.threshold})",
     )
     command.add_argument(
         "--line-tolerance",
@@ -134,46 +139,55 @@ def _validate(paths):
 def _eval(arguments):
     try:
         paths, cases, repo, environ = _cases(arguments.cases)
-        model = Model.from_environment(environ, arguments.model_url, arguments.model)
-        judge = judges.from_environment(environ, arguments.judge, arguments.judge_model, model)
-        engine = _settings(repo, arguments)
-    except (InvalidCases, InvalidSettings, MissingApiKey, repository.RepositoryError) as error:
+        settings = _config(repo, arguments)
+        reviewer = settings.model
+        model = Model.reviewer(reviewer.url, reviewer.name, reviewer.protocol, environ)
+        judge = judges.from_environment(environ, settings.judge.name, settings.judge.model, model)
+    except (InvalidCases, InvalidConfig, MissingApiKey, repository.RepositoryError) as error:
         print(error, file=sys.stderr)
         return INVALID_INPUT
     instructions = repository.reviewer_instructions(repo)
     print(
         f"{len(cases)} case(s) in {', '.join(str(path) for path in paths)}, reviewed by "
-        f"{model.name} at {model.url}\nengine: {_describe(engine)}; "
-        f"{_rules_followed(repo, instructions)}",
+        f"{model.name} at {model.url}\nengine: {_describe(settings.engine)}; "
+        f"{_rules_followed(repo, instructions)}\njudge: {_judged_by(settings.judge)}",
         flush=True,
     )
     if arguments.save_reviews:
         arguments.save_reviews.mkdir(parents=True, exist_ok=True)
         _save_reviewer(model, arguments.save_reviews)
     reviews = {}
-    with proxy.relaying(model.url) as relay_url:
+    with _reached(model) as engine_model:
         for case in cases:
-            reviews[case] = _review(case, repo, replace(model, url=relay_url), engine, instructions)
+            reviews[case] = _review(case, repo, engine_model, settings.engine, instructions)
             if arguments.save_reviews:
                 save(reviews[case], arguments.save_reviews / f"{case.name}.json")
-    return _report(cases, reviews, judge, arguments)
+    return _report(cases, reviews, judge, settings.judge.threshold, arguments)
 
 
 def _score(arguments):
     try:
-        paths, cases, _, environ = _cases(arguments.cases)
+        paths, cases, repo, environ = _cases(arguments.cases)
+        settings = _config(repo, arguments).judge
         reviewer = _saved_reviewer(arguments.reviews, environ)
-        judge = judges.from_environment(environ, arguments.judge, arguments.judge_model, reviewer)
-    except (InvalidCases, InvalidReviews, MissingApiKey, repository.RepositoryError) as error:
+        judge = judges.from_environment(environ, settings.name, settings.model, reviewer)
+    except (
+        InvalidCases,
+        InvalidConfig,
+        InvalidReviews,
+        MissingApiKey,
+        repository.RepositoryError,
+    ) as error:
         print(error, file=sys.stderr)
         return INVALID_INPUT
     print(
         f"{len(cases)} case(s) in {', '.join(str(path) for path in paths)}, reviewed by "
-        f"{reviewer.name} at {reviewer.url}, as saved in {arguments.reviews}",
+        f"{reviewer.name} at {reviewer.url}, as saved in {arguments.reviews}\n"
+        f"judge: {_judged_by(settings)}",
         flush=True,
     )
     reviews = {case: _saved_review(arguments.reviews / f"{case.name}.json") for case in cases}
-    return _report(cases, reviews, judge, arguments)
+    return _report(cases, reviews, judge, settings.threshold, arguments)
 
 
 def _rule():
@@ -223,23 +237,56 @@ def _saved_reviewer(directory, environ):
     return Model(reviewer["url"], reviewer["name"], environ.get("RELECTEUR_API_KEY", ""))
 
 
-def _report(cases, reviews, judge, arguments):
-    report = evaluate(
-        cases, reviews, DefectFinder(judge, arguments.line_tolerance, arguments.judge_threshold)
-    )
+def _report(cases, reviews, judge, threshold, arguments):
+    report = evaluate(cases, reviews, DefectFinder(judge, arguments.line_tolerance, threshold))
     _print(report, reviews)
     return EXIT_CODES[report.outcome]
 
 
-def _settings(repo, arguments):
-    """The engine settings of the repository's configuration file, overridden by the call's."""
-    settings = open_code_review.load_settings(repo / CONFIG)
-    overrides = {
-        name: value
-        for name in ("effort", "concurrency")
-        if (value := getattr(arguments, name)) is not None
-    }
-    return replace(settings, **overrides)
+def _config(repo, arguments):
+    """The repository's configuration, overridden by the options of the call.
+
+    An option naming another endpoint or judge leaves out the protocol or the model configured
+    for the one it replaces.
+    """
+    settings = config.load(repo / CONFIG)
+    engine = replace(
+        settings.engine,
+        **{
+            name: value
+            for name in ("effort", "concurrency")
+            if (value := getattr(arguments, name, None)) is not None
+        },
+    )
+    model = settings.model
+    if (url := getattr(arguments, "model_url", None)) and url != model.url:
+        model = replace(model, url=url, protocol=None)
+    if name := getattr(arguments, "model", None):
+        model = replace(model, name=name)
+    judge = settings.judge
+    if arguments.judge and arguments.judge != judge.name:
+        judge = replace(judge, name=arguments.judge, model=None)
+    if arguments.judge_model:
+        judge = replace(judge, model=arguments.judge_model)
+    if arguments.judge_threshold is not None:
+        judge = replace(judge, threshold=arguments.judge_threshold)
+    return config.Config(engine, model, judge)
+
+
+@contextmanager
+def _reached(model):
+    """The model as the engine reaches it: an OpenAI-compatible endpoint through the relay that
+    has Albert call tools, Anthropic's API directly."""
+    if model.protocol != "openai":
+        yield model
+        return
+    with proxy.relaying(model.url) as relay_url:
+        yield replace(model, url=relay_url)
+
+
+def _judged_by(judge):
+    model = judge.model or judges.DEFAULT_MODELS[judge.name]
+    return f"{judge.name} ({model}), confirming a defect from a probability of {judge.threshold}"
 
 
 def _describe(settings):

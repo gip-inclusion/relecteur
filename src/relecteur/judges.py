@@ -20,6 +20,7 @@ from relecteur.scorer import Judge, JudgeUnavailable
 DEFAULT_MODELS = MappingProxyType({"albert": "deepseek-v4-flash-0731", "jev": "jev-latest"})
 
 _JEV_URL = "https://api.typesafe.ai/v1/systemone"
+_URLS = MappingProxyType({"albert": DEFAULT_URL, "jev": _JEV_URL})
 _QUESTION = (
     "Does the review remark point out the expected defect: the same failure, from the same cause, "
     "even in other words? A remark about the same code that names another problem is not the "
@@ -30,30 +31,23 @@ _QUESTION = (
 def from_environment(
     environ: Mapping[str, str], name: str, model: str | None, reviewer: Model
 ) -> Judge:
-    """The judge called `name`, asking `model` or the judge's default one.
+    """The judge called `name`, asking `model` or the judge's default one, with its key from
+    RELECTEUR_JUDGE_API_KEY.
 
     Whatever model reviews, the albert judge asks Albert, so that reviewers are compared under the
-    same judge. Its key is RELECTEUR_JUDGE_API_KEY, or the reviewer's when Albert serves the
-    reviewer too. The jev judge reads its key from TYPESAFE_API_KEY.
+    same judge: when Albert serves the reviewer too, the reviewer's key serves the judge.
     """
     model = model or DEFAULT_MODELS[name]
-    if name == "albert":
-        return AlbertJudge(Model(DEFAULT_URL, model, _albert_api_key(environ, reviewer)))
-    api_key = environ.get("TYPESAFE_API_KEY", "")
+    shares_albert = name == "albert" and reviewer.url == DEFAULT_URL
+    api_key = environ.get("RELECTEUR_JUDGE_API_KEY") or (reviewer.api_key if shares_albert else "")
     if not api_key:
-        raise MissingApiKey(f"TYPESAFE_API_KEY is not set: it holds the API key of {_JEV_URL}")
+        raise MissingApiKey(
+            f"RELECTEUR_JUDGE_API_KEY is not set: it holds the API key of the {name} judge "
+            f"({_URLS[name]})"
+        )
+    if name == "albert":
+        return AlbertJudge(Model(DEFAULT_URL, model, api_key))
     return JevJudge(model, api_key)
-
-
-def _albert_api_key(environ, reviewer):
-    if api_key := environ.get("RELECTEUR_JUDGE_API_KEY"):
-        return api_key
-    if reviewer.url == DEFAULT_URL and reviewer.api_key:
-        return reviewer.api_key
-    raise MissingApiKey(
-        "RELECTEUR_JUDGE_API_KEY is not set: it holds the Albert API key of the albert judge, "
-        f"needed since Albert did not serve the reviewer, {reviewer.name}, with RELECTEUR_API_KEY"
-    )
 
 
 @dataclass(frozen=True)

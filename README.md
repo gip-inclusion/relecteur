@@ -18,15 +18,17 @@ evaluates: that repository only provides case files.
   npm install --global @alibaba-group/open-code-review@1.12.13
   ```
 
-- An API key for the model endpoint, in `RELECTEUR_API_KEY`. The default model is served by
+- The API key of the reviewer's endpoint, in `RELECTEUR_API_KEY`. The default model is served by
   [Albert](https://albert.api.etalab.gouv.fr): create the key from an Albert account,
   preferably one attached to a service address rather than to a person.
-- To judge expected defects with Jev rather than Albert, an API key from
-  [TypeSafe](https://typesafe.ai) in `TYPESAFE_API_KEY`.
+- The API key of the judge, in `RELECTEUR_JUDGE_API_KEY`: an Albert key for the `albert` judge,
+  which can go without it when Albert serves the reviewer too, or a [TypeSafe](https://typesafe.ai)
+  key for the `jev` judge.
 
 These variables can also be set in the `.env` file at the root of the evaluated repository, which
 `relecteur eval` reads as dotenv does: a variable the environment already sets keeps its value.
-Keep that file out of git.
+Keep that file out of git. The keys are the only settings read from the environment: the model
+and the judge are chosen in the repository's configuration file (see "Configuration").
 
 ## Installation
 
@@ -183,34 +185,45 @@ the probability that the finding describes the defect, which is found from a thr
 finding finds one defect at most, the one the judge is the most confident it describes: a remark
 on one defect never counts for a neighbouring one.
 
-| Option | Default | |
-| --- | --- | --- |
-| `--judge` | `albert` | `albert` asks a model of Albert; `jev` asks [Jev](https://typesafe.ai), TypeSafe's judgment model. |
-| `--judge-model` | `deepseek-v4-flash-0731` for `albert`, `jev-latest` for `jev` | |
-| `--judge-threshold` | `0.5` | Probability from which a defect is found. |
-| `--line-tolerance` | `5` | Lines between a finding and a defect for the judge to be asked. |
+The judge is chosen in the `[judge]` table of the configuration file (see "Configuration"), which
+these options of `relecteur eval` and `relecteur score` override:
 
-The `albert` judge asks for a one-word answer, yes or no, and reads the probability of yes in
-the logprobs of that word. It asks Albert whatever model reviews, so that reviewers are compared
-under the same judge: its API key is `RELECTEUR_JUDGE_API_KEY`, or `RELECTEUR_API_KEY` when
-Albert serves the reviewer too. The `jev` judge's
-request follows TypeSafe's System One API as RubyLLM implements it.
+| Setting | Option | Default | |
+| --- | --- | --- | --- |
+| `name` | `--judge` | `albert` | `albert` asks a model of Albert; `jev` asks [Jev](https://typesafe.ai), TypeSafe's judgment model. |
+| `model` | `--judge-model` | `deepseek-v4-flash-0731` for `albert`, `jev-latest` for `jev` | |
+| `threshold` | `--judge-threshold` | `0.5` | Probability from which a defect is found. |
+| | `--line-tolerance` | `5` | Lines between a finding and a defect for the judge to be asked. |
+
+The judge's API key is `RELECTEUR_JUDGE_API_KEY`. The `albert` judge asks for a one-word answer,
+yes or no, and reads the probability of yes in the logprobs of that word. It asks Albert whatever
+model reviews, so that reviewers are compared under the same judge; when Albert serves the
+reviewer too, the reviewer's key serves the judge. The `jev` judge's request follows TypeSafe's
+System One API as RubyLLM implements it.
 
 A judge that cannot answer, model unavailable or answer unreadable, makes the case an error,
 never a missed defect.
 
 ## Model
 
-open-code-review reaches the model through an OpenAI-compatible endpoint. The model is
-configured, never written in code: each setting is read from the command line, then the
-environment or the repository's `.env` file, then falls back to Albert.
+open-code-review reaches the model through an OpenAI-compatible endpoint, such as Albert's, or
+through Anthropic's API. The model is chosen in the `[model]` table of the configuration file
+(see "Configuration"), which these options of `relecteur eval` override:
 
-| Option | Environment variable | Default |
-| --- | --- | --- |
-| `--model-url` | `RELECTEUR_MODEL_URL` | `https://albert.api.etalab.gouv.fr/v1` |
-| `--model` | `RELECTEUR_MODEL` | `deepseek-v4-flash-0731` |
-| | `RELECTEUR_API_KEY` | none, required |
-| | `RELECTEUR_JUDGE_API_KEY` | `RELECTEUR_API_KEY` when the reviewer is served by Albert; an Albert key otherwise, for the `albert` judge |
+| Setting | Option | Default | |
+| --- | --- | --- | --- |
+| `url` | `--model-url` | `https://albert.api.etalab.gouv.fr/v1` | The endpoint; Anthropic's is `https://api.anthropic.com`, without `/v1`. |
+| `name` | `--model` | `deepseek-v4-flash-0731` | |
+| `protocol` | | `anthropic` for `api.anthropic.com`, `openai` otherwise | `openai` or `anthropic`, for an endpoint the URL does not tell, such as a gateway. |
+
+Its API key is `RELECTEUR_API_KEY`. A `--model-url` naming another endpoint than the configured
+one leaves out the configured protocol.
+
+```toml
+[model]
+url = "https://api.anthropic.com"
+name = "claude-opus-5-5"
+```
 
 The engine runs with an empty home directory, so that a personal open-code-review
 configuration never overrides the model chosen here; git keeps the global configuration of
@@ -233,17 +246,30 @@ files the engine reviews are chosen by the repository's
 `.opencodereview/rule.json` (its `include` and `exclude` patterns), which the engine reads by
 itself.
 
-### Engine settings
+### Configuration
 
-The repository's `.relecteur/config.toml` sets the engine for `relecteur eval` and, through
-it, for CI; the options of `relecteur eval` override it.
+The repository's `.relecteur/config.toml` sets what an evaluation measures: the engine and the
+model that review, for `relecteur eval` and, through it, for CI, and the judge. It holds no
+secret, and is versioned with the cases, so that a score always tells which reviewer and which
+judge made it. The options of `relecteur eval` and `relecteur score` override it, for a one-off
+run.
 
 ```toml
 effort = "high"
 concurrency = 2
 max_tokens_budget = 2000000
 language = "French"
+
+[model]
+url = "https://albert.api.etalab.gouv.fr/v1"
+name = "deepseek-v4-flash-0731"
+
+[judge]
+name = "jev"
+threshold = 0.5
 ```
+
+The model and the judge are described above; the engine settings sit at the top of the file:
 
 | Setting | Option | Default | |
 | --- | --- | --- | --- |
@@ -269,8 +295,9 @@ into `tool_choice: "none"`, against the OpenAI convention the engine relies on: 
 never calls a tool, and every review runs out of rounds. Albert 0.9.0 fixes it, with a deployment
 announced for 2026-10-19 ([changelog](https://guides.ia.numerique.gouv.fr/albert-api/ressources/changelog)).
 
-Until then, `relecteur eval` sends the engine's requests through a local relay that adds
-`tool_choice: "auto"` to the requests carrying tools, and forwards everything else unchanged.
+Until then, `relecteur eval` sends the engine's requests to an OpenAI-compatible endpoint through
+a local relay that adds `tool_choice: "auto"` to the requests carrying tools, and forwards
+everything else unchanged; it reaches Anthropic's API directly.
 To run the engine directly, start the relay and point the engine to it:
 
 ```sh
@@ -294,7 +321,8 @@ python3 -m venv .venv
 
 The test suite needs no application repository, no network access and no model: tests
 that try to open a connection fail. The tests cover the scorer, with a deterministic judge, the
-case loader, the engine settings file, the combination of the reviewer instructions, saved
+case loader, the configuration file, the choice of the model's protocol and of the judges' keys,
+the combination of the reviewer instructions, saved
 reviews, the engine adapter, against engine outputs recorded or written from its source, the
 `albert` judge's reading of answers, recorded or built for an edge case, and the relay's rule
 for `tool_choice`. Running git, the engine, the judges and the relay itself is checked by real

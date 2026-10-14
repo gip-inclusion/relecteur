@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from relecteur.judges import albert_probability
+from relecteur.judges import AlbertJudge, JevJudge, albert_probability, from_environment
+from relecteur.model import DEFAULT_NAME, DEFAULT_URL, MissingApiKey, Model
 from relecteur.scorer import JudgeUnavailable
 
 RESPONSES = Path(__file__).parent / "fixtures" / "judges"
@@ -36,3 +37,27 @@ def test_every_spelling_of_yes_counts_against_every_spelling_of_no():
 def test_an_answer_that_is_neither_yes_nor_no_is_no_judgment():
     with pytest.raises(JudgeUnavailable):
         albert_probability(first_token(("The", 0.9), ("A", 0.1)))
+
+
+ALBERT_REVIEWER = Model(DEFAULT_URL, DEFAULT_NAME, "albert-key")
+CLAUDE_REVIEWER = Model("https://api.anthropic.com", "claude-opus-5-5", "claude-key", "anthropic")
+
+
+def test_a_judge_takes_its_key_from_relecteur_judge_api_key():
+    judge = from_environment({"RELECTEUR_JUDGE_API_KEY": "jev-key"}, "jev", None, CLAUDE_REVIEWER)
+
+    assert judge == JevJudge("jev-latest", "jev-key")
+
+
+def test_the_albert_judge_shares_the_key_of_a_reviewer_albert_serves_too():
+    judge = from_environment({}, "albert", None, ALBERT_REVIEWER)
+
+    assert judge == AlbertJudge(Model(DEFAULT_URL, "deepseek-v4-flash-0731", "albert-key"))
+
+
+@pytest.mark.parametrize(
+    ("name", "reviewer"), [("albert", CLAUDE_REVIEWER), ("jev", ALBERT_REVIEWER)]
+)
+def test_a_judge_whose_key_the_reviewer_cannot_share_needs_its_own(name, reviewer):
+    with pytest.raises(MissingApiKey, match="RELECTEUR_JUDGE_API_KEY is not set"):
+        from_environment({}, name, None, reviewer)
