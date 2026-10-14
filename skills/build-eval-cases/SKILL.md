@@ -142,7 +142,18 @@ gh api repos/<owner>/<repo>/issues/<number>/comments   # conversation
    (`git log --oneline <merge_commit_sha>..origin/<default branch> -- <files>`). A fix that
    corrects a line this pull request wrote makes it a defect case candidate instead.
 
-4. **Prefer substance.** The best silence cases change logic a noisy reviewer would comment on;
+4. **Read it as the reviewer would.** A pull request no fix touched can still hold a defect
+   nobody has noticed yet. Read its diff and the code it relies on (the callers of what it
+   changes, the types of the values it compares, the callbacks and scopes it triggers), looking
+   for what "Defect cases" calls a defect, within what the reviewer is asked to report
+   (`REVIEW.md` and `AGENTS.md`, when the repository has them). Check each suspicion: run the
+   code when that is cheap (a console, a test), otherwise follow it through the code until it
+   holds or falls. A defect you confirm rules the pull request out: give it in your report, with
+   how you checked it, as a defect still on the default branch, which makes a defect case once it
+   is fixed. A defect outside what the reviewer is asked to report leaves the case a silence
+   case: mention it in your report.
+
+5. **Prefer substance.** The best silence cases change logic a noisy reviewer would comment on;
    a typo fix or a version bump tests little. Spread the cases across areas of the code and
    authors.
 
@@ -218,9 +229,11 @@ most often: verify each link with git or the API rather than infer it from commi
 A human reviewer's comment on a line pointed out a defect, or asked for what a convention written
 in the repository prescribes (in its `AGENTS.md`, `CONTRIBUTING.md` or the like), and the author
 changed the code accordingly in a later commit of the same pull request. Keep only comments that
-wrong behaviour or a written convention backs, and that the human reviewer meant as required: a
-remark of taste, on naming or design, or one its author labelled minor ("nitpick", "nit", "if you
-want"), is one the reviewer is not expected to make.
+wrong behaviour or a written convention backs, and judge that from the code, not from how the
+comment is worded: a question or a suggested simplification points out a defect when the code
+before it gives a wrong result in a situation that can occur, which you check as a suspicion in a
+silence case. A remark of taste, on naming or design, or one its author labelled minor
+("nitpick", "nit", "if you want"), is one the reviewer is not expected to make.
 
 1. Among reviewed pull requests, read the comments on lines (`pulls/<number>/comments`) for one
    that points out wrong behaviour or asks for what a written convention prescribes, followed by
@@ -276,5 +289,5 @@ maintainer's to start.
    - a defect case: the pull request, its approval, the faulty line at head
      (`https://github.com/<owner>/<repo>/blob/<head>/<path>#L<line>`), the fix, and whether the
      defect is inferred from its fix.
-3. End the report with the number of cases of each kind and, if you drafted fewer than asked,
-   why.
+3. End the report with the number of cases of each kind, the defects still on the default branch
+   that reading the silence cases found, and, if you drafted fewer than asked, why.
