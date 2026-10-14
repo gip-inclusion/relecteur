@@ -60,11 +60,6 @@ base = "b2f7f9a327f098f6ef64d91d13c193353d92ab5d"
 head = "38ed0cb00af75b0fd9b533521af64be6dd397be0"
 max_findings = 0
 
-[[forbidden_remarks]]
-path = "src/billing.py"
-line = 42
-concept = "Asks to rename `total` although the name matches the invoice vocabulary."
-
 [pr]
 title = "Apply the discount before the total"
 description = '''
@@ -78,7 +73,6 @@ The discount applied to the total with taxes, against the terms of sale.
 | `notes` | What the reviewer is expected to do, and why. Read by humans only: it is never shown to the reviewer. |
 | `base`, `head` | Full SHAs of the code a human reviewed: the pull request's base and head commits, or, for a defect a reviewer caught, the commit they commented on as `head`. |
 | `max_findings` | The case fails as soon as the reviewer makes more findings than this. |
-| `forbidden_remarks` | Optional. Remarks the reviewer must not make again, taken from its findings the maintainer judged wrong: a finding covering `line` of `path` fails the case, whatever `max_findings` allows. |
 | `expected_defects` | Optional. Defects the reviewer should flag, which makes the case a defect case: see below. |
 | `pr` | Optional, at the end of the file. The `title` and `description` of the pull request, as its author wrote them: the reviewer reads them as the intent of the change, as it will in CI. |
 
@@ -160,7 +154,7 @@ exits with:
 | Code | Meaning |
 | --- | --- |
 | 0 | Every silence case passed. |
-| 1 | At least one silence case failed: the reviewer made too many remarks, repeated a forbidden one, or did not finish its review. |
+| 1 | At least one silence case failed: the reviewer made too many remarks, or did not finish its review. |
 | 2 | Invalid input: a malformed case, a missing API key, an invalid option, no repository found. |
 | 3 | No verdict: no silence case failed, but one could not be reviewed: model unavailable (overload, quota reached, timeout), engine missing, or a pull request with no file the engine reviews. |
 

@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import pytest
 
-from relecteur.cases import Case, ExpectedDefect, ForbiddenRemark, Location
+from relecteur.cases import Case, ExpectedDefect, Location
 from relecteur.review import Finding, Review
 from relecteur.scorer import (
     DefectFinder,
@@ -61,49 +61,6 @@ def test_a_silence_case_passes_with_as_many_findings_as_its_ceiling():
     result = score(
         tolerating_two_findings, Review(findings=(finding(line=1), finding(line=2))), CONFIRMING
     )
-
-    assert result.outcome is Outcome.PASSED
-
-
-WITH_A_FORBIDDEN_REMARK = replace(
-    APPROVED_PULL_REQUEST,
-    max_findings=3,
-    forbidden_remarks=(
-        ForbiddenRemark(
-            path="src/billing.py",
-            line=42,
-            concept="Asks to rename the method although its name matches the domain.",
-        ),
-    ),
-)
-
-
-def test_a_finding_on_a_forbidden_remark_fails_the_case_even_under_its_ceiling():
-    result = score(
-        WITH_A_FORBIDDEN_REMARK,
-        Review(findings=(finding(path="src/billing.py", line=42),)),
-        CONFIRMING,
-    )
-
-    assert result.outcome is Outcome.FAILED
-    assert result.reasons == (
-        "forbidden remark repeated at src/billing.py:42: "
-        "Asks to rename the method although its name matches the domain.",
-    )
-
-
-def test_a_finding_whose_range_covers_a_forbidden_remark_repeats_it():
-    covering = Finding(path="src/billing.py", start_line=40, end_line=45, text="A remark.")
-
-    result = score(WITH_A_FORBIDDEN_REMARK, Review(findings=(covering,)), CONFIRMING)
-
-    assert result.outcome is Outcome.FAILED
-
-
-def test_a_finding_elsewhere_than_a_forbidden_remark_does_not_repeat_it():
-    elsewhere = (finding(path="src/billing.py", line=43), finding(path="src/invoice.py", line=42))
-
-    result = score(WITH_A_FORBIDDEN_REMARK, Review(findings=elsewhere), CONFIRMING)
 
     assert result.outcome is Outcome.PASSED
 

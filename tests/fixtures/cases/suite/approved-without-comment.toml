@@ -3,8 +3,3 @@ notes = "Approved by the maintainer without a single comment: the reviewer shoul
 base = "b2f7f9a327f098f6ef64d91d13c193353d92ab5d"
 head = "38ed0cb00af75b0fd9b533521af64be6dd397be0"
 max_findings = 0
-
-[[forbidden_remarks]]
-path = "src/billing.py"
-line = 42
-concept = "Asks to rename the method although its name matches the domain."

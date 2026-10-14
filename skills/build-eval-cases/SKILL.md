@@ -90,10 +90,6 @@ escaped_review = true
 | `fix` | Link to the change that fixed the defect: its pull request (`https://github.com/<owner>/<repo>/pull/<number>`); its commit when it has none (`https://github.com/<owner>/<repo>/commit/<sha>`); for a defect caught in review, the fix commit within the pull request (`https://github.com/<owner>/<repo>/pull/<number>/commits/<sha>`). |
 | `escaped_review` | `true` when the human review let the defect through to the merge, `false` when a human reviewer flagged it and it was fixed within the pull request. |
 
-The format has one more field, `forbidden_remarks`, which the maintainer fills from the reviewer's
-findings judged wrong during its calibration: history does not provide them, and your cases leave
-it out.
-
 Write `notes` and `concept` in the language of the existing cases, English when there are
 none. Name the file `pr-<number>-<what-it-does>.toml`, in a few kebab-case English words. A pull
 request with several defects is one case, with one `[[expected_defects]]` table per defect.

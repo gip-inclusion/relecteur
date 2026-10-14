@@ -5,7 +5,6 @@ import pytest
 from relecteur.cases import (
     Case,
     ExpectedDefect,
-    ForbiddenRemark,
     InvalidCases,
     Location,
     load_cases,
@@ -26,13 +25,6 @@ def test_a_pull_request_approved_without_comment_is_loaded_from_its_file():
             base="b2f7f9a327f098f6ef64d91d13c193353d92ab5d",
             head="38ed0cb00af75b0fd9b533521af64be6dd397be0",
             max_findings=0,
-            forbidden_remarks=(
-                ForbiddenRemark(
-                    path="src/billing.py",
-                    line=42,
-                    concept="Asks to rename the method although its name matches the domain.",
-                ),
-            ),
         )
     ]
 
@@ -96,7 +88,6 @@ def test_a_directory_holds_one_case_per_file():
             "other-location-without-path.toml",
             "expected defect 1: other location 1: missing field 'path'",
         ),
-        ("remark-without-concept.toml", "forbidden remark 1: missing field 'concept'"),
         (
             "escaped-review-in-words.toml",
             "expected defect 1: 'escaped_review' must be true or false, got 'yes'",

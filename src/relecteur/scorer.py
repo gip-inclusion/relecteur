@@ -123,11 +123,6 @@ def score(case: Case, review: Review, finder: DefectFinder) -> CaseResult:
     reasons = []
     if len(review.findings) > case.max_findings:
         reasons.append(f"{len(review.findings)} finding(s), ceiling is {case.max_findings}")
-    reasons += [
-        f"forbidden remark repeated at {remark.path}:{remark.line}: {remark.concept}"
-        for remark in case.forbidden_remarks
-        if any(_repeats(finding, remark) for finding in review.findings)
-    ]
     try:
         defects = finder.results(case.expected_defects, review.findings)
     except JudgeUnavailable as error:
@@ -144,10 +139,6 @@ def score(case: Case, review: Review, finder: DefectFinder) -> CaseResult:
         tuple(reasons),
         defects,
     )
-
-
-def _repeats(finding, remark):
-    return finding.path == remark.path and finding.start_line <= remark.line <= finding.end_line
 
 
 def _verdict(results):

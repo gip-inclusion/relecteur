@@ -7,13 +7,6 @@ _SHA = re.compile(r"[0-9a-f]{40}")
 
 
 @dataclass(frozen=True)
-class ForbiddenRemark:
-    path: str
-    line: int
-    concept: str
-
-
-@dataclass(frozen=True)
 class Location:
     path: str
     lines: tuple[int, ...]
@@ -74,7 +67,6 @@ class Case:
     base: str
     head: str
     max_findings: int
-    forbidden_remarks: tuple[ForbiddenRemark, ...] = ()
     expected_defects: tuple[ExpectedDefect, ...] = ()
     pr: PullRequestText | None = None
 
@@ -121,9 +113,6 @@ def _load(path):
         base=data["base"],
         head=data["head"],
         max_findings=data["max_findings"],
-        forbidden_remarks=tuple(
-            ForbiddenRemark(**remark) for remark in data.get("forbidden_remarks", [])
-        ),
         expected_defects=tuple(
             _expected_defect(**defect) for defect in data.get("expected_defects", [])
         ),
@@ -149,23 +138,20 @@ def _lines(line):
 
 def _case_problems(data):
     problems = _problems(data, _CASE_FIELDS, _OPTIONAL_CASE_FIELDS)
-    for field, label, rules, optional in _TABLES:
-        items = data.get(field, [])
-        if _is_list_of_tables(items):
-            for number, item in enumerate(items, start=1):
-                problems += _problems(item, rules, optional, label=f"{label} {number}: ")
-                others = item.get("also_at", []) if "also_at" in optional else []
-                if _is_list_of_tables(others):
-                    for other_number, other in enumerate(others, start=1):
-                        problems += _problems(
-                            other,
-                            _LOCATION_FIELDS,
-                            {},
-                            label=f"{label} {number}: other location {other_number}: ",
-                        )
+    defects = data.get("expected_defects", [])
+    if _is_list_of_tables(defects):
+        for number, defect in enumerate(defects, start=1):
+            label = f"expected defect {number}: "
+            problems += _problems(defect, _DEFECT_FIELDS, _OPTIONAL_DEFECT_FIELDS, label=label)
+            others = defect.get("also_at", [])
+            if _is_list_of_tables(others):
+                for other_number, other in enumerate(others, start=1):
+                    problems += _problems(
+                        other, _LOCATION_FIELDS, {}, label=f"{label}other location {other_number}: "
+                    )
     if isinstance(pr := data.get("pr"), dict):
         problems += _problems(pr, _PR_FIELDS, _OPTIONAL_PR_FIELDS, label="pr: ")
-    defects, ceiling = data.get("expected_defects", []), data.get("max_findings")
+    ceiling = data.get("max_findings")
     if isinstance(defects, list) and _is_count(ceiling) and ceiling < len(defects):
         problems.append(
             f"'max_findings' must allow the {len(defects)} expected defect(s), got {ceiling}"
@@ -233,28 +219,18 @@ _CASE_FIELDS = {
 }
 _OPTIONAL_CASE_FIELDS = {
     "pr": (_is_table, "a table"),
-    "forbidden_remarks": (_is_list_of_tables, "an array of tables"),
     "expected_defects": (_is_list_of_tables, "an array of tables"),
 }
 _PR_FIELDS = {"title": (_is_text, "a non-empty string")}
 _OPTIONAL_PR_FIELDS = {"description": (_is_text, "a non-empty string")}
-_REMARK_FIELDS = {
-    "path": (_is_text, "a non-empty string"),
-    "line": (_is_line_number, "a line number"),
-    "concept": (_is_text, "a non-empty string"),
-}
 _LOCATION_FIELDS = {
     "path": (_is_text, "a non-empty string"),
     "line": (_is_line_or_lines, "a line number or a non-empty list of line numbers"),
 }
 _DEFECT_FIELDS = {
-    **_REMARK_FIELDS,
     **_LOCATION_FIELDS,
+    "concept": (_is_text, "a non-empty string"),
     "fix": (_is_text, "a non-empty string"),
     "escaped_review": (_is_boolean, "true or false"),
 }
 _OPTIONAL_DEFECT_FIELDS = {"also_at": (_is_list_of_tables, "an array of tables")}
-_TABLES: tuple[tuple[str, str, dict, dict], ...] = (
-    ("forbidden_remarks", "forbidden remark", _REMARK_FIELDS, {}),
-    ("expected_defects", "expected defect", _DEFECT_FIELDS, _OPTIONAL_DEFECT_FIELDS),
-)
