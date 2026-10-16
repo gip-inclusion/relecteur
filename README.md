@@ -6,6 +6,9 @@ whether the reviewer behaved as each case expects: on a pull request the maintai
 without a single comment, the reviewer is expected to stay silent; on a pull request that a later
 commit had to fix, it is expected to flag the defect.
 
+The same reviewer runs in CI on every new pull request, through the GitHub Action of this
+repository (see "Review in CI"): the engine, rules, settings and model the harness measures.
+
 The package assumes nothing about the language, framework or domain of the repository it
 evaluates: that repository only provides case files.
 
@@ -289,8 +292,8 @@ into `tool_choice: "none"`, against the OpenAI convention the engine relies on: 
 never calls a tool, and every review runs out of rounds. Albert 0.9.0 fixes it, with a deployment
 announced for 2026-10-19 ([changelog](https://guides.ia.numerique.gouv.fr/albert-api/ressources/changelog)).
 
-Until then, `relecteur eval` sends the engine's requests to an OpenAI-compatible endpoint through
-a local relay that adds `tool_choice: "auto"` to the requests carrying tools, and forwards
+Until then, `relecteur eval` and the action send the engine's requests to an OpenAI-compatible
+endpoint through a local relay that adds `tool_choice: "auto"` to the requests carrying tools, and forwards
 everything else unchanged; it reaches Anthropic's API directly.
 To run the engine directly, start the relay and point the engine to it:
 
@@ -302,6 +305,76 @@ ocr review --from <base> --to <head>
 ```
 
 Remove the relay once Albert serves the fixed gateway.
+
+## Review in CI
+
+`action.yml` is a GitHub Action that reviews a pull request as `relecteur eval` replays one: the
+same engine version, the rule `relecteur rule` combines from `REVIEW.md` and `AGENTS.md`, the
+settings and the model of `.relecteur/config.toml`, which `relecteur settings` prints for it, all
+as the base branch has them, and the title and description of the pull request as its intent. It runs
+[open-code-review's action](https://github.com/alibaba/open-code-review/blob/main/action.yml),
+which posts each finding on the lines it concerns, and a summary. It only comments: it never
+approves a pull request nor requests changes.
+
+The repository's workflow chooses when to review. This one reviews a pull request once, when it
+is opened or leaves draft, so that what a review costs does not follow the number of pushes, and
+again when a comment calls `@relecteur`:
+
+```yaml
+name: Review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  relecteur:
+    name: Relecteur
+    # Pull requests of bots are never reviewed. Those of forks get no secret: a comment of the
+    # team reviews them.
+    if: >-
+      (github.event_name == 'pull_request' && !github.event.pull_request.draft
+        && github.event.pull_request.user.type != 'Bot'
+        && github.event.pull_request.head.repo.full_name == github.repository)
+      || (github.event_name == 'issue_comment' && github.event.issue.pull_request
+        && github.event.issue.state == 'open' && github.event.issue.user.type != 'Bot'
+        && github.event.comment.user.type != 'Bot'
+        && contains(github.event.comment.body, '@relecteur'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    concurrency:
+      group: relecteur-${{ github.event.pull_request.number || github.event.issue.number }}
+    steps:
+      - uses: gip-inclusion/relecteur@<commit>
+        with:
+          api_key: ${{ secrets.RELECTEUR_API_KEY }}
+```
+
+A comment calls the reviewer when one of its own lines, not a quoted one, names `@relecteur`, and
+when its author can push to the repository; no account or GitHub App stands behind the name, and
+no GitHub account bears it (checked on 2026-10-17), so a call notifies no one. The findings are
+signed by GitHub Actions' bot. A review called again reviews the whole pull request, and does not
+post a finding again on lines that already carry one.
+
+The summary is a comment of the pull request: it tells that the review is under way, then how it
+ended, in French. A review that the model cut short (overload, rate limit, timeout, a 5xx
+answer) tells which files it left out and how to call it again, and the job succeeds, as it does
+when the review reaches its token budget, if one is set; a review that the reviewer
+itself kept from the pull request (a refused key, a reviewer running out of rounds, an engine
+without output) says so, and the job fails, for the maintainer of the setup to notice. Neither
+blocks a pull request, as long as the job is not a required check. Unlike `relecteur eval`, the
+action does not resume a review that the rate limit cut short.
+
+open-code-review's version is pinned twice in `action.yml`, for its action and its CLI, and is the
+version `relecteur eval` requires. The summary relies on that version of the action: on the
+marker of its summary comment (`<!-- ocr-summary -->`) and on the output it leaves in
+`/tmp/ocr-result.json`; check both when upgrading.
 
 ## Development
 
@@ -316,8 +389,9 @@ python3 -m venv .venv
 The test suite needs no application repository, no network access and no model: tests
 that try to open a connection fail. The tests cover the scorer, with a deterministic judge, the
 case loader, the configuration file, the choice of the model's protocol and of the judges' keys,
-the combination of the reviewer instructions, saved
-reviews, the engine adapter, against engine outputs recorded or written from its source, the
+the settings CI reviews with, the combination of the reviewer instructions, saved
+reviews, the engine adapter and the summary of a review in CI, against engine outputs recorded or
+written from its source, the
 `albert` judge's reading of answers, recorded or built for an edge case, and the relay's rule
 for `tool_choice`. Running git, the engine, the judges and the relay itself is checked by real
 runs.

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from relecteur import judges
-from relecteur.model import DEFAULT_NAME, DEFAULT_URL, PROTOCOLS
+from relecteur.model import DEFAULT_NAME, DEFAULT_URL, PROTOCOLS, protocol_of
 from relecteur.open_code_review import EFFORTS, Settings
 from relecteur.scorer import DEFAULT_THRESHOLD
 
@@ -66,6 +66,21 @@ def load(path: Path) -> Config:
         model=ModelSettings(**_checked(path, tables["model"], _MODEL, "model.")),
         judge=JudgeSettings(**_checked(path, tables["judge"], _JUDGE, "judge.")),
     )
+
+
+def ci_settings(config: Config) -> dict[str, str]:
+    """The settings the review in CI passes to the engine, for it to review as `relecteur eval`
+    does; an empty token budget leaves the review unbounded."""
+    engine, model = config.engine, config.model
+    return {
+        "effort": engine.effort,
+        "concurrency": str(engine.concurrency),
+        "max_tokens_budget": str(engine.max_tokens_budget or ""),
+        "language": engine.language or "English",
+        "model_url": model.url,
+        "model": model.name,
+        "protocol": protocol_of(model.url, model.protocol),
+    }
 
 
 def _checked(

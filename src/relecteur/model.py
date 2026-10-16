@@ -27,16 +27,19 @@ class Model:
     def reviewer(
         cls, url: str, name: str, protocol: str | None, environ: Mapping[str, str]
     ) -> "Model":
-        """The model that reviews, with its key from RELECTEUR_API_KEY.
-
-        Without a protocol, the endpoint speaks Anthropic's when it is Anthropic's API, and
-        OpenAI's otherwise.
-        """
+        """The model that reviews, with its key from RELECTEUR_API_KEY."""
         api_key = environ.get("RELECTEUR_API_KEY", "")
         if not api_key:
             raise MissingApiKey(
                 f"RELECTEUR_API_KEY is not set: it holds the API key of the reviewer's endpoint "
                 f"({url})"
             )
-        anthropic = urlparse(url).hostname == _ANTHROPIC_HOST
-        return cls(url, name, api_key, protocol or ("anthropic" if anthropic else "openai"))
+        return cls(url, name, api_key, protocol_of(url, protocol))
+
+
+def protocol_of(url: str, protocol: str | None) -> str:
+    """The protocol of an endpoint: the one given, else Anthropic's for Anthropic's API, and
+    OpenAI's otherwise."""
+    if protocol:
+        return protocol
+    return "anthropic" if urlparse(url).hostname == _ANTHROPIC_HOST else "openai"

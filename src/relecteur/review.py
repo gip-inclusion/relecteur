@@ -1,5 +1,6 @@
 import json
 from dataclasses import asdict, dataclass
+from enum import Enum
 from pathlib import Path
 
 
@@ -34,6 +35,35 @@ class Review:
     unfinished: str | None = None
     tokens: int | None = None
     seconds: float | None = None
+
+
+class Status(Enum):
+    """What a review of a pull request in CI came to."""
+
+    REVIEWED = "reviewed"
+    NOTHING_TO_REVIEW = "nothing to review"
+    UNAVAILABLE = "unavailable"
+    OVER_BUDGET = "over budget"
+    FAILED = "failed"
+
+
+@dataclass(frozen=True)
+class PullRequestReview:
+    """A review in CI of a pull request, as its summary tells the authors.
+
+    `findings` are those the review published, which a review cut short publishes too. Of the
+    `files` the engine selected, `unreviewed` were left out, for the `cause` the engine gives.
+    """
+
+    status: Status
+    findings: int = 0
+    files: int = 0
+    unreviewed: int = 0
+    cause: str | None = None
+
+    @property
+    def failed(self) -> bool:
+        return self.status is Status.FAILED
 
 
 def save(review: Review, path: Path) -> None:

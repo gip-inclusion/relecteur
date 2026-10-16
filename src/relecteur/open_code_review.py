@@ -13,7 +13,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from relecteur.model import Model
-from relecteur.review import Finding, Review
+from relecteur.review import Finding, PullRequestReview, Review, Status
 
 _INSTALL_COMMAND = "npm install --global @alibaba-group/open-code-review@1.12.13"
 
@@ -21,6 +21,9 @@ _INSTALL_COMMAND = "npm install --global @alibaba-group/open-code-review@1.12.13
 _COMPLETE = frozenset({"complete", "success", "completed_with_warnings"})
 # Failure classes of a model or an engine out of reach, rather than of an unfinished review.
 _UNAVAILABLE = frozenset({"provider", "timeout", "cancelled"})
+# Errors of a model out of reach for a while, unlike a refused key or request; the engine classes
+# the other 5xx answers, such as 503, as "provider" errors, along with refused requests.
+_TRANSIENT_ERRORS = frozenset({"rate_limited", "overloaded", "timeout", "network"})
 
 # A run cut short by the model's rate limit or by timeouts is resumed this many times, after a
 # pause that doubles from one resume to the next, for a per-minute rate limit to recover.
@@ -190,8 +193,7 @@ def parse(stdout: str, stderr: str, returncode: int) -> Review:
     try:
         output = json.loads(stdout)
     except json.JSONDecodeError:
-        last_line = stderr.strip().splitlines()[-1] if stderr.strip() else "no output"
-        return Review(error=f"open-code-review exited with code {returncode}: {last_line}")
+        return Review(error=f"open-code-review exited with code {returncode}: {_last_line(stderr)}")
     try:
         tokens = (output.get("summary") or {}).get("total_tokens")
         if output["status"] == "skipped":
@@ -206,6 +208,49 @@ def parse(stdout: str, stderr: str, returncode: int) -> Review:
         )
     except (AttributeError, KeyError, TypeError) as error:
         return Review(error=f"unexpected open-code-review output: {error!r}")
+
+
+def pull_request_review(stdout: str, stderr: str) -> PullRequestReview:
+    """Turns the output of `ocr review --format json` in CI into a `PullRequestReview`.
+
+    Unlike `parse`, it keeps the findings of a review that did not cover every file: the review
+    in CI published them.
+    """
+    try:
+        output = json.loads(stdout)
+    except json.JSONDecodeError:
+        return PullRequestReview(Status.FAILED, cause=_last_line(stderr))
+    try:
+        if output["status"] in _COMPLETE:
+            return PullRequestReview(Status.REVIEWED, len(output["comments"]))
+        if output["status"] == "skipped":
+            return PullRequestReview(Status.NOTHING_TO_REVIEW)
+        coverage = (output.get("manifest") or {}).get("coverage", {})
+        return PullRequestReview(
+            _incomplete_status(output),
+            len(output.get("comments") or []),
+            files=len(coverage.get("selected", [])),
+            unreviewed=len(coverage.get("failed", [])),
+            cause=_causes(output),
+        )
+    except (AttributeError, KeyError, TypeError) as error:
+        return PullRequestReview(
+            Status.FAILED, cause=f"unexpected open-code-review output: {error!r}"
+        )
+
+
+def _incomplete_status(output):
+    if (output.get("summary") or {}).get("budget_exceeded"):
+        return Status.OVER_BUDGET
+    if _failure_classes(output) <= _UNAVAILABLE and all(
+        _transient(attempt) for attempt in _last_failed_attempts(output)
+    ):
+        return Status.UNAVAILABLE
+    return Status.FAILED
+
+
+def _last_line(stderr):
+    return stderr.strip().splitlines()[-1] if stderr.strip() else "no output"
 
 
 def _finding(comment):
@@ -225,15 +270,29 @@ def _incomplete_review(output):
     failed = coverage.get("failed", [])
     selected = coverage.get("selected", [])
     classes = _failure_classes(output)
-    causes = _provider_errors(output) or sorted({item["classification"] for item in failed})
-    if run_failure := manifest.get("run_failure"):
-        causes.append(f"{run_failure['classification']}: {run_failure.get('reason', '')}")
     scope = f" ({len(failed)} of {len(selected)} file(s) not reviewed)" if selected else ""
-    detail = ", ".join(causes) or output.get("message", output["status"])
+    detail = _causes(output) or output.get("message", output["status"])
     if classes <= _UNAVAILABLE:
         unavailable = "model unavailable, " if "provider" in classes else ""
         return Review(error=f"{unavailable}review incomplete{scope}: {detail}")
     return Review(unfinished=f"review not finished{scope}: {detail}")
+
+
+def _transient(attempt):
+    error = attempt.get("error_class")
+    return error in _TRANSIENT_ERRORS or (
+        error == "provider" and (attempt.get("status_code") or 0) >= 500
+    )
+
+
+def _causes(output):
+    """Why a run did not review every file: the model's errors, else how its files failed."""
+    manifest = output.get("manifest") or {}
+    failed = manifest.get("coverage", {}).get("failed", [])
+    causes = _provider_errors(output) or sorted({item["classification"] for item in failed})
+    if run_failure := manifest.get("run_failure"):
+        causes.append(f"{run_failure['classification']}: {run_failure.get('reason', '')}")
+    return ", ".join(causes)
 
 
 def _failure_classes(output):

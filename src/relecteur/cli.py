@@ -7,7 +7,7 @@ from contextlib import contextmanager, suppress
 from dataclasses import replace
 from pathlib import Path
 
-from relecteur import config, judges, open_code_review, proxy, repository
+from relecteur import config, judges, open_code_review, proxy, repository, summary
 from relecteur.cases import InvalidCases, load_cases
 from relecteur.config import InvalidConfig
 from relecteur.model import DEFAULT_NAME, DEFAULT_URL, MissingApiKey, Model
@@ -80,6 +80,21 @@ def main(argv: list[str] | None = None) -> int:
         help="print the engine rule file that combines the repository's REVIEW.md and AGENTS.md",
     )
 
+    commands.add_parser(
+        "settings",
+        help=f"print the engine and model settings of {CONFIG} as name=value lines, for CI",
+    )
+
+    summary_command = commands.add_parser(
+        "summary", help="print the summary of a review in CI, for its pull request"
+    )
+    summary_command.add_argument(
+        "output", type=Path, help="the output of `ocr review --format json`, missing if none"
+    )
+    summary_command.add_argument(
+        "--stderr", type=Path, help="the engine's error output, telling why it wrote no review"
+    )
+
     proxy_command = commands.add_parser("proxy", help="relay the model endpoint for an engine run")
     proxy_command.add_argument("--port", type=int, default=8765, help="local port (default: 8765)")
     proxy_command.add_argument(
@@ -91,6 +106,10 @@ def main(argv: list[str] | None = None) -> int:
         return _validate(arguments.paths)
     if arguments.command == "rule":
         return _rule()
+    if arguments.command == "settings":
+        return _settings()
+    if arguments.command == "summary":
+        return _summary(arguments.output, arguments.stderr)
     if arguments.command == "score":
         return _score(arguments)
     if arguments.command == "proxy":
@@ -202,6 +221,29 @@ def _rule():
         print(f"no {neither} in {repo}: the engine keeps its own rules", file=sys.stderr)
     print(json.dumps(open_code_review.rule_file(instructions), indent=2, ensure_ascii=False))
     return 0
+
+
+def _settings():
+    try:
+        settings = config.load(repository.root(Path.cwd()) / CONFIG)
+    except (InvalidConfig, repository.RepositoryError) as error:
+        print(error, file=sys.stderr)
+        return INVALID_INPUT
+    for name, value in config.ci_settings(settings).items():
+        print(f"{name}={value}")
+    return 0
+
+
+def _summary(output, stderr):
+    """Prints the summary of the review, and fails when the reviewer, rather than the model,
+    kept it from reviewing the pull request."""
+    review = open_code_review.pull_request_review(_content(output), _content(stderr))
+    print(summary.text(review))
+    return 1 if review.failed else 0
+
+
+def _content(path):
+    return path.read_text(encoding="utf-8") if path and path.is_file() else ""
 
 
 def _cases(paths):

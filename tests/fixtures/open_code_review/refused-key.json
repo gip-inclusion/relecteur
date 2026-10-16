@@ -1,0 +1,98 @@
+{
+  "status": "failed",
+  "llm": {
+    "provider": "custom",
+    "model": "deepseek-v4-flash-0731"
+  },
+  "message": "Review failed: 0 finding(s); 1 of 1 selected item(s) failed.",
+  "summary": {
+    "files_reviewed": 0,
+    "comments": 0,
+    "total_tokens": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "elapsed": "1s"
+  },
+  "tool_calls": {
+    "total": 0,
+    "by_tool": {},
+    "failure": 0,
+    "failure_by_tool": {},
+    "failure_details": []
+  },
+  "comments": [],
+  "warnings": [
+    {
+      "file": "src/billing.py",
+      "message": "POST \"https://albert.api.etalab.gouv.fr/v1/chat/completions\": 401 Unauthorized",
+      "type": "subtask_error"
+    }
+  ],
+  "session_id": "5f0d2c3b-7a41-4e9b-8c6d-2b1e9f4a7c05",
+  "manifest": {
+    "schema_version": "ocr.run-manifest/v1",
+    "run_id": "run-8e1c",
+    "operation": "review",
+    "terminal_state": "failed",
+    "repository": {},
+    "input": {
+      "mode": "range",
+      "resolved_base": "b2f7f9a327f098f6ef64d91d13c193353d92ab5d",
+      "resolved_head": "38ed0cb00af75b0fd9b533521af64be6dd397be0"
+    },
+    "execution": {
+      "ocr_version": "1.12.11",
+      "provider": "custom",
+      "model": "deepseek-v4-flash-0731"
+    },
+    "coverage": {
+      "selected": [
+        {
+          "item_id": "a1",
+          "path": "src/billing.py"
+        }
+      ],
+      "completed": [],
+      "reused": [],
+      "failed": [
+        {
+          "item_id": "a1",
+          "path": "src/billing.py",
+          "classification": "provider",
+          "reason": "provider or subtask request failed"
+        }
+      ],
+      "waived": []
+    },
+    "elapsed_ms": 1210
+  },
+  "retry_report": {
+    "schema_version": "ocr.llm-retry-report/v1",
+    "total_requests": 1,
+    "retried_requests": 0,
+    "total_retries": 0,
+    "recovered_requests": 0,
+    "failed_requests": 1,
+    "cancelled_requests": 0,
+    "requests": [
+      {
+        "logical_request_id": "req-1",
+        "provider": "custom",
+        "model": "deepseek-v4-flash-0731",
+        "file_path": "src/billing.py",
+        "task_type": "main_task",
+        "request_no": 1,
+        "outcome": "failed",
+        "attempts": [
+          {
+            "attempt": 1,
+            "outcome": "error",
+            "error_class": "authentication",
+            "failure_phase": "http",
+            "status_code": 401
+          }
+        ]
+      }
+    ]
+  }
+}
