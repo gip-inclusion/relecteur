@@ -79,9 +79,9 @@
         "request_no": 1,
         "outcome": "failed",
         "attempts": [
-          {"attempt": 1, "outcome": "error", "error_class": "overloaded", "failure_phase": "http", "status_code": 503},
-          {"attempt": 2, "outcome": "error", "error_class": "overloaded", "failure_phase": "http", "status_code": 503, "observed_backoff_ms": 2004},
-          {"attempt": 3, "outcome": "error", "error_class": "overloaded", "failure_phase": "http", "status_code": 503, "observed_backoff_ms": 4011}
+          {"attempt": 1, "outcome": "error", "error_class": "provider", "failure_phase": "http", "status_code": 503},
+          {"attempt": 2, "outcome": "error", "error_class": "provider", "failure_phase": "http", "status_code": 503, "observed_backoff_ms": 2004},
+          {"attempt": 3, "outcome": "error", "error_class": "provider", "failure_phase": "http", "status_code": 503, "observed_backoff_ms": 4011}
         ]
       }
     ]

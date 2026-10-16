@@ -70,7 +70,7 @@ def test_an_overloaded_model_on_every_file_is_an_error():
 
     assert review == Review(
         error="model unavailable, review incomplete (1 of 1 file(s) not reviewed): "
-        "overloaded (HTTP 503)",
+        "provider (HTTP 503)",
         tokens=0,
     )
 
