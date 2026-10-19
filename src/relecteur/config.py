@@ -91,6 +91,10 @@ def _is_text(value):
     return isinstance(value, str) and bool(value.strip())
 
 
+def _is_patterns(value):
+    return isinstance(value, list) and all(_is_text(pattern) for pattern in value)
+
+
 def _is_url(value):
     return isinstance(value, str) and value.startswith(("http://", "https://"))
 
@@ -104,6 +108,8 @@ _ENGINE = {
     "concurrency": (_is_positive, "a positive integer"),
     "max_tokens_budget": (_is_positive, "a positive integer"),
     "language": (_is_text, "a non-empty string"),
+    "include": (_is_patterns, "a list of file patterns"),
+    "exclude": (_is_patterns, "a list of file patterns"),
 }
 _MODEL = {
     "url": (_is_url, "an http or https URL"),

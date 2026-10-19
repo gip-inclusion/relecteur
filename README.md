@@ -237,11 +237,9 @@ and the default rule every other file gets, which leads the reviewer to remarks 
 test coverage. With one of the two files, the rule is that file; with neither, the engine
 reviews by its own rules.
 
-`relecteur rule` prints that rule, in the engine's format, for CI to pass the same one to the
-engine; with neither file, it prints an empty rule, under which the engine keeps its own. The
-files the engine reviews are chosen by the repository's
-`.opencodereview/rule.json` (its `include` and `exclude` patterns), which the engine reads by
-itself.
+`relecteur rule` prints the rule file the engine receives, in its format, with the `include` and
+`exclude` patterns of the configuration below; with neither file, its rule is empty, under which
+the engine keeps its own.
 
 ### Configuration
 
@@ -256,6 +254,8 @@ effort = "high"
 concurrency = 2
 max_tokens_budget = 2000000
 language = "French"
+include = ["**/*_spec.rb", "**/*.erb"]
+exclude = ["db/schema.rb", "db/migrate/**", "Gemfile.lock"]
 
 [model]
 url = "https://albert.api.etalab.gouv.fr/v1"
@@ -274,6 +274,8 @@ The model and the judge are described above; the engine settings sit at the top 
 | `concurrency` | `--concurrency` | `2` | Groups of files the engine reviews at once. |
 | `max_tokens_budget` | | none | Tokens a review may spend; the engine stops reviewing further files beyond it, and the review counts as not finished. |
 | `language` | | English | The language of the findings. |
+| `include` | | none | Patterns of files to review that the engine leaves out by default, such as tests and templates. |
+| `exclude` | | none | Patterns of files never to review, such as generated files, whatever `include` says. |
 
 Each group sends its own requests to the model. Albert answers too many of them at once with
 HTTP 429, hence 2 groups at a time by default, which a model served without such limits can

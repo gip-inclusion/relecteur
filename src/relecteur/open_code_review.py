@@ -9,7 +9,8 @@ import subprocess
 import sys
 import tempfile
 import time
-from dataclasses import dataclass, replace
+from collections.abc import Sequence
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from relecteur.model import Model
@@ -38,16 +39,19 @@ class Settings:
     """How the engine reviews.
 
     Its effort preset, how many groups of files it reviews at once, the tokens it may spend on a
-    review, and the language of its findings. A higher effort spends more rounds and tokens on
-    each group; each group sends its own requests to the model, so concurrency is what runs into a
-    model's rate limit. Without a budget, a review spends what it needs; without a language,
-    findings come in English.
+    review, the language of its findings, and the files it reviews: `include` adds files it leaves
+    out by default (tests, templates), `exclude` takes files out, whatever `include` says. A higher
+    effort spends more rounds and tokens on each group; each group sends its own requests to the
+    model, so concurrency is what runs into a model's rate limit. Without a budget, a review spends
+    what it needs; without a language, findings come in English.
     """
 
     effort: str = "high"
     concurrency: int = 2
     max_tokens_budget: int | None = None
     language: str | None = None
+    include: list[str] = field(default_factory=list)
+    exclude: list[str] = field(default_factory=list)
 
 
 def review(
@@ -62,8 +66,7 @@ def review(
     """Reviews `head` against its merge base with `base`, as the pull request was opened.
 
     `background` tells the engine what the pull request intends, and `instructions` replace its
-    own rules on every file; the files it reviews remain those the repository's
-    `.opencodereview/rule.json` selects.
+    own rules on every file; the settings select the files it reviews.
 
     When the model's rate limit or timeouts cut the run short, it is resumed after a pause, longer
     at each resume: the engine then reviews the files left only, its session being kept in the
@@ -101,22 +104,28 @@ def pull_request_output(
     return runs[-1].stdout, "".join(run.stderr for run in runs)
 
 
-def rule_file(instructions: str | None) -> dict:
-    """The engine's rule file applying `instructions` to every file.
+def rule_file(
+    instructions: str | None, include: Sequence[str] = (), exclude: Sequence[str] = ()
+) -> dict:
+    """The engine's rule file applying `instructions` to every file, among the files that
+    `include` and `exclude` select.
 
     The engine has a rule of its own for Python, which the instructions join, and for a few other
     file types (Maven, Gradle, package.json…); the instructions replace those, and the default rule
     every other file gets, which leads the reviewer to remarks on naming and test coverage. Without
     instructions, the engine keeps its own rules.
     """
-    if not instructions:
-        return {"rules": []}
-    return {
-        "rules": [
+    rule: dict = {"rules": []}
+    if instructions:
+        rule["rules"] = [
             {"path": "**/*.py", "rule": instructions, "merge_system_rule": True},
             {"path": "**/*", "rule": instructions},
         ]
-    }
+    if include:
+        rule["include"] = list(include)
+    if exclude:
+        rule["exclude"] = list(exclude)
+    return rule
 
 
 def session_to_resume(stdout: str) -> str | None:
@@ -154,9 +163,9 @@ def _runs(repo, base, head, model, settings, background, instructions):
     if background:
         command += ["--background", background]
     with tempfile.TemporaryDirectory() as home:
-        if instructions:
-            rule = json.dumps(rule_file(instructions), ensure_ascii=False)
-            Path(home, "rule.json").write_text(rule, encoding="utf-8")
+        if instructions or settings.include or settings.exclude:
+            rule = rule_file(instructions, settings.include, settings.exclude)
+            Path(home, "rule.json").write_text(json.dumps(rule, ensure_ascii=False), "utf-8")
             command += ["--rule", str(Path(home, "rule.json"))]
         try:
             if settings.language and (

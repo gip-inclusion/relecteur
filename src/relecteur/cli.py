@@ -77,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
 
     commands.add_parser(
         "rule",
-        help="print the engine rule file that combines the repository's REVIEW.md and AGENTS.md",
+        help=f"print the engine rule file: REVIEW.md and AGENTS.md, on the files {CONFIG} selects",
     )
 
     review_pr_command = commands.add_parser(
@@ -216,14 +216,16 @@ def _score(arguments):
 def _rule():
     try:
         repo = repository.root(Path.cwd())
-    except repository.RepositoryError as error:
+        engine = config.load(repo / CONFIG).engine
+    except (InvalidConfig, repository.RepositoryError) as error:
         print(error, file=sys.stderr)
         return INVALID_INPUT
     instructions = repository.reviewer_instructions(repo)
     if not instructions:
         neither = " nor ".join(repository.REVIEWER_INSTRUCTIONS)
         print(f"no {neither} in {repo}: the engine keeps its own rules", file=sys.stderr)
-    print(json.dumps(open_code_review.rule_file(instructions), indent=2, ensure_ascii=False))
+    rule = open_code_review.rule_file(instructions, engine.include, engine.exclude)
+    print(json.dumps(rule, indent=2, ensure_ascii=False))
     return 0
 
 

@@ -137,3 +137,20 @@ def test_a_review_cut_short_by_anything_else_is_not_resumed(output):
 )
 def test_a_review_tells_the_tokens_the_model_consumed_even_when_cut_short(output, tokens):
     assert parse(output).tokens == tokens
+
+
+def test_the_rule_file_applies_the_instructions_to_every_file_and_selects_the_files_to_review():
+    rule = open_code_review.rule_file("Cite le code.", ["**/*_spec.rb"], ["db/migrate/**"])
+
+    assert rule == {
+        "rules": [
+            {"path": "**/*.py", "rule": "Cite le code.", "merge_system_rule": True},
+            {"path": "**/*", "rule": "Cite le code."},
+        ],
+        "include": ["**/*_spec.rb"],
+        "exclude": ["db/migrate/**"],
+    }
+
+
+def test_without_instructions_nor_patterns_the_rule_file_leaves_the_engine_its_own_rules():
+    assert open_code_review.rule_file(None) == {"rules": []}

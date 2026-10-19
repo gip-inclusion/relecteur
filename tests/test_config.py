@@ -7,13 +7,19 @@ from relecteur.open_code_review import Settings
 def test_the_settings_of_the_configuration_file_override_the_defaults(tmp_path):
     path = tmp_path / "config.toml"
     path.write_text(
-        'effort = "medium"\nlanguage = "French"\n\n'
+        'effort = "medium"\nlanguage = "French"\n'
+        'include = ["**/*_spec.rb"]\nexclude = ["db/schema.rb", "db/migrate/**"]\n\n'
         '[model]\nurl = "https://api.anthropic.com"\nname = "claude-opus-5-5"\n\n'
         '[judge]\nname = "jev"\nthreshold = 0.7\n'
     )
 
     assert config.load(path) == config.Config(
-        engine=Settings(effort="medium", language="French"),
+        engine=Settings(
+            effort="medium",
+            language="French",
+            include=["**/*_spec.rb"],
+            exclude=["db/schema.rb", "db/migrate/**"],
+        ),
         model=config.ModelSettings(url="https://api.anthropic.com", name="claude-opus-5-5"),
         judge=config.JudgeSettings(name="jev", threshold=0.7),
     )
@@ -29,6 +35,8 @@ def test_without_a_configuration_file_the_configuration_is_the_defaults(tmp_path
         ('efort = "medium"', "unknown setting 'efort'"),
         ('effort = "maximum"', "'effort' must be one of low, medium, high, got 'maximum'"),
         ("max_tokens_budget = -1", "'max_tokens_budget' must be a positive integer, got -1"),
+        ('include = "**/*.erb"', "'include' must be a list of file patterns, got '**/*.erb'"),
+        ('exclude = ["db/**", ""]', "'exclude' must be a list of file patterns, got ['db/**', '']"),
         ('model = "claude-opus-5-5"', "'model' must be a table, got 'claude-opus-5-5'"),
         ('[model]\nnmae = "claude-opus-5-5"', "unknown setting 'model.nmae'"),
         (
