@@ -1,12 +1,18 @@
-"""Relays chat requests to the model endpoint, asking for tool calls whenever tools are sent.
+"""Relays chat requests to the model endpoint, asking for tool calls whenever tools are sent, and
+sending again the requests the endpoint's rate limit refused.
 
 Albert's gateway up to 0.8.0 turns a missing `tool_choice` into "none", against the OpenAI
 convention the engine relies on, so DeepSeek never calls the engine's tools. Albert 0.9.0 fixes
-it, announced for deployment on 2026-10-19: this relay can go once it is deployed.
+it, announced for deployment on 2026-10-19.
+
+Albert also limits the tokens a model receives per minute, which a review at high effort exceeds.
+The engine's own retries of a refused request last seconds, then it gives up the request's files:
+the relay waits for the limit to recover instead, and the engine never sees the refusal.
 """
 
 import json
 import threading
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterator
@@ -45,6 +51,11 @@ class _Relay(ThreadingHTTPServer):
         self.upstream = upstream.rstrip("/")
 
 
+# Pauses before sending again a request the rate limit refused: a per-minute limit has recovered
+# after the first two, and the last answer comes well before the engine's request timeout (300 s).
+_RATE_LIMIT_PAUSES = (20, 40, 60)
+
+
 class _Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         body = with_tool_choice(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
@@ -57,14 +68,17 @@ class _Handler(BaseHTTPRequestHandler):
             },
             method="POST",
         )
-        try:
-            with urllib.request.urlopen(request, timeout=600) as response:
-                self._answer(response.status, response.headers, response.read())
-        except urllib.error.HTTPError as error:
-            self._answer(error.code, error.headers, error.read())
-        except urllib.error.URLError as error:
-            message = {"error": {"message": f"model endpoint unreachable: {error.reason}"}}
-            self._answer(502, {}, json.dumps(message).encode())
+        for pause in (*_RATE_LIMIT_PAUSES, None):
+            try:
+                with urllib.request.urlopen(request, timeout=600) as response:
+                    return self._answer(response.status, response.headers, response.read())
+            except urllib.error.HTTPError as error:
+                if error.code != 429 or pause is None:
+                    return self._answer(error.code, error.headers, error.read())
+                time.sleep(pause)
+            except urllib.error.URLError as error:
+                message = {"error": {"message": f"model endpoint unreachable: {error.reason}"}}
+                return self._answer(502, {}, json.dumps(message).encode())
 
     def _answer(self, status, headers, payload):
         try:

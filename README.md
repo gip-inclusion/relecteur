@@ -279,12 +279,14 @@ Each group sends its own requests to the model. Albert answers too many of them 
 HTTP 429, hence 2 groups at a time by default, which a model served without such limits can
 raise. At high effort, each request carries the whole conversation of its group: on Albert, the
 largest pull requests only finish with 1 group at a time, which costs little time since the
-per-minute limit is what slows a review down. The engine retries a refused request, then gives up on its files, as it does on files
-that take longer than its timeout. When the rate limit or timeouts alone left files unreviewed,
+per-minute limit is what slows a review down. The engine retries a refused request for a few
+seconds, then gives up on its files, as it does on files that take longer than its timeout: the
+relay below sends a request the rate limit refused again once the minute has passed, so that the
+engine rarely sees the refusal. When the rate limit or timeouts still left files unreviewed,
 `relecteur eval` resumes the engine's session after 1, then 2, then 4 minutes, and the engine
 reviews the files left only. A case still incomplete afterwards gets no verdict.
 
-### Tool calls on Albert
+### The relay to Albert
 
 The engine works by having the model call its tools (read a file, search the code, post a
 remark). Albert's gateway up to version 0.8.0 turns a request that does not set `tool_choice`
@@ -292,9 +294,15 @@ into `tool_choice: "none"`, against the OpenAI convention the engine relies on: 
 never calls a tool, and every review runs out of rounds. Albert 0.9.0 fixes it, with a deployment
 announced for 2026-10-19 ([changelog](https://guides.ia.numerique.gouv.fr/albert-api/ressources/changelog)).
 
-Until then, `relecteur eval` and the action send the engine's requests to an OpenAI-compatible
-endpoint through a local relay that adds `tool_choice: "auto"` to the requests carrying tools, and forwards
-everything else unchanged; it reaches Anthropic's API directly.
+Albert also limits the tokens a model receives per minute, which a review at high effort
+exceeds: it answers HTTP 429, which the engine retries for a few seconds only before giving up
+the files of the request.
+
+`relecteur eval` and the action therefore send the engine's requests to an OpenAI-compatible
+endpoint through a local relay, a process on the same machine listening on 127.0.0.1, for the
+time of the review. The relay adds `tool_choice: "auto"` to the requests carrying tools, sends
+again a request answered 429 after 20, then 40, then 60 seconds, and forwards everything else
+unchanged; the engine reaches Anthropic's API directly.
 To run the engine directly, start the relay and point the engine to it:
 
 ```sh
@@ -304,7 +312,7 @@ OCR_LLM_MODEL=deepseek-v4-flash-0731 OCR_LLM_PROTOCOL=openai \
 ocr review --from <base> --to <head>
 ```
 
-Remove the relay once Albert serves the fixed gateway.
+Once Albert serves the fixed gateway, the relay only waits for the rate limit.
 
 ## Review in CI
 
@@ -368,8 +376,9 @@ answer) tells which files it left out and how to call it again, and the job succ
 when the review reaches its token budget, if one is set; a review that the reviewer
 itself kept from the pull request (a refused key, a reviewer running out of rounds, an engine
 without output) says so, and the job fails, for the maintainer of the setup to notice. Neither
-blocks a pull request, as long as the job is not a required check. Unlike `relecteur eval`, the
-action does not resume a review that the rate limit cut short.
+blocks a pull request, as long as the job is not a required check. The relay waits for Albert's
+rate limit as it does for `relecteur eval`, but unlike `relecteur eval`, the action does not resume
+a review that the rate limit still cut short.
 
 open-code-review's version is pinned twice in `action.yml`, for its action and its CLI, and is the
 version `relecteur eval` requires. The summary relies on that version of the action: on the

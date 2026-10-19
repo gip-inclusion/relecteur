@@ -91,8 +91,8 @@ runs:
         relecteur settings >> "$GITHUB_OUTPUT"
         relecteur rule > "$RUNNER_TEMP/relecteur-rule.json"
 
-    # Albert's gateway up to 0.8.0 calls no tool unless asked to: until it serves 0.9.0, the engine
-    # reaches an OpenAI-compatible endpoint through the relay of `relecteur proxy`.
+    # The engine reaches an OpenAI-compatible endpoint through the relay of `relecteur eval`, which
+    # waits for Albert's rate limit, and asks its gateway up to 0.8.0 for tool calls.
     - name: Start the relay to the model
       id: model
       if: steps.pr.outputs.review == 'true'
