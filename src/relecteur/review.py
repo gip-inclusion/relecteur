@@ -56,7 +56,7 @@ class PullRequestReview:
     """
 
     status: Status
-    findings: int = 0
+    findings: tuple[Finding, ...] = ()
     files: int = 0
     unreviewed: int = 0
     cause: str | None = None

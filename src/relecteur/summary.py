@@ -27,13 +27,13 @@ def text(review: PullRequestReview) -> str:
             )
         return (
             f"⚠️ **relecteur** n'a relu {_only_files(reviewed)} sur {review.files} : {unavailable} "
-            f"{_found_in_part(review.findings)} {_REVIEW_AGAIN}"
+            f"{_found_in_part(len(review.findings))} {_REVIEW_AGAIN}"
         )
     if review.status is Status.OVER_BUDGET:
         return (
             f"⚠️ **relecteur** n'a relu {_only_files(review.files - review.unreviewed)} sur "
             f"{review.files} : la review a atteint son plafond de tokens. "
-            f"{_found_in_part(review.findings)}"
+            f"{_found_in_part(len(review.findings))}"
         )
     if review.status is Status.FAILED:
         if not review.files:
@@ -42,11 +42,11 @@ def text(review: PullRequestReview) -> str:
             f"{_files(review.unreviewed)} sur {review.files} "
             f"{_plural(review.unreviewed, 'non relu')} (`{review.cause}`)."
         )
-        found = f" {_found_in_part(review.findings)}" if review.findings else ""
+        found = f" {_found_in_part(len(review.findings))}" if review.findings else ""
         return f"❌ **relecteur** n'a pas terminé sa review : {unreviewed}{found} {_NOT_THE_PR}"
     if not review.findings:
         return "✅ **relecteur** a relu cette PR : rien à signaler."
-    return f"🔍 **relecteur** a relu cette PR : {_findings(review.findings)}"
+    return f"🔍 **relecteur** a relu cette PR : {_findings(len(review.findings))}"
 
 
 def _findings(count):

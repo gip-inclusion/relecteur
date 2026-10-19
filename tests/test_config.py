@@ -23,36 +23,6 @@ def test_without_a_configuration_file_the_configuration_is_the_defaults(tmp_path
     assert config.load(tmp_path / "config.toml") == config.Config()
 
 
-def test_ci_reviews_with_the_engine_and_model_of_the_configuration(tmp_path):
-    path = tmp_path / "config.toml"
-    path.write_text(
-        'effort = "medium"\nconcurrency = 1\nmax_tokens_budget = 4000000\nlanguage = "French"\n\n'
-        '[model]\nurl = "https://api.anthropic.com"\nname = "claude-opus-5-5"\n'
-    )
-
-    assert config.ci_settings(config.load(path)) == {
-        "effort": "medium",
-        "concurrency": "1",
-        "max_tokens_budget": "4000000",
-        "language": "French",
-        "model_url": "https://api.anthropic.com",
-        "model": "claude-opus-5-5",
-        "protocol": "anthropic",
-    }
-
-
-def test_without_a_configuration_file_ci_reviews_with_the_defaults(tmp_path):
-    assert config.ci_settings(config.load(tmp_path / "config.toml")) == {
-        "effort": "high",
-        "concurrency": "2",
-        "max_tokens_budget": "",
-        "language": "English",
-        "model_url": "https://albert.api.etalab.gouv.fr/v1",
-        "model": "deepseek-v4-flash-0731",
-        "protocol": "openai",
-    }
-
-
 @pytest.mark.parametrize(
     ("content", "problem"),
     [

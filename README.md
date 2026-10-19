@@ -316,13 +316,13 @@ Once Albert serves the fixed gateway, the relay only waits for the rate limit.
 
 ## Review in CI
 
-`action.yml` is a GitHub Action that reviews a pull request as `relecteur eval` replays one: the
-same engine version, the rule `relecteur rule` combines from `REVIEW.md` and `AGENTS.md`, the
-settings and the model of `.relecteur/config.toml`, which `relecteur settings` prints for it, all
-as the base branch has them, and the title and description of the pull request as its intent. It runs
-[open-code-review's action](https://github.com/alibaba/open-code-review/blob/main/action.yml),
-which posts each finding on the lines it concerns, and a summary. It only comments: it never
-approves a pull request nor requests changes.
+`action.yml` is a GitHub Action that reviews a pull request as `relecteur eval` replays one:
+`relecteur review-pr` runs the same engine version, by the rule combined from `REVIEW.md` and
+`AGENTS.md`, with the settings and the model of `.relecteur/config.toml`, all as the base branch
+has them, and the title and description of the pull request as its intent. It runs in a step
+that has no GitHub token, then `relecteur post-review` posts each finding on the lines it
+concerns, and a summary that lists the findings on lines the diff does not show. It only
+comments: it never approves a pull request nor requests changes.
 
 The repository's workflow chooses when to review. This one reviews a pull request once, when it
 is opened or leaves draft, so that what a review costs does not follow the number of pushes, and
@@ -376,14 +376,14 @@ answer) tells which files it left out and how to call it again, and the job succ
 when the review reaches its token budget, if one is set; a review that the reviewer
 itself kept from the pull request (a refused key, a reviewer running out of rounds, an engine
 without output) says so, and the job fails, for the maintainer of the setup to notice. Neither
-blocks a pull request, as long as the job is not a required check. The relay waits for Albert's
-rate limit as it does for `relecteur eval`, but unlike `relecteur eval`, the action does not resume
-a review that the rate limit still cut short.
+blocks a pull request, as long as the job is not a required check. As for `relecteur eval`, the
+relay waits for Albert's rate limit, and a review that the rate limit or timeouts still cut short
+is resumed.
 
-open-code-review's version is pinned twice in `action.yml`, for its action and its CLI, and is the
-version `relecteur eval` requires. The summary relies on that version of the action: on the
-marker of its summary comment (`<!-- ocr-summary -->`) and on the output it leaves in
-`/tmp/ocr-result.json`; check both when upgrading.
+open-code-review's version is pinned twice: in `action.yml`, which installs it, and in the
+install command `relecteur eval` gives when the engine is missing. The action reviews public
+repositories only: it fetches the head of the pull request without credentials, which it keeps
+out of the repository's git configuration, for the engine not to find the token there.
 
 ## Development
 
@@ -398,9 +398,9 @@ python3 -m venv .venv
 The test suite needs no application repository, no network access and no model: tests
 that try to open a connection fail. The tests cover the scorer, with a deterministic judge, the
 case loader, the configuration file, the choice of the model's protocol and of the judges' keys,
-the settings CI reviews with, the combination of the reviewer instructions, saved
-reviews, the engine adapter and the summary of a review in CI, against engine outputs recorded or
-written from its source, the
+the combination of the reviewer instructions, saved reviews, the engine adapter and the summary
+of a review in CI, against engine outputs recorded or written from its source, the placement of
+its findings on the lines of a diff, the
 `albert` judge's reading of answers, recorded or built for an edge case, and the relay's rule
 for `tool_choice`. Running git, the engine, the judges and the relay itself is checked by real
 runs.

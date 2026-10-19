@@ -1,8 +1,9 @@
 name: relecteur
 description: >-
-  Reviews a pull request with open-code-review, by the repository's REVIEW.md, AGENTS.md and
-  .relecteur/config.toml, and posts the findings on the lines they concern, with a summary in
-  French. It comments only: it neither approves a pull request nor requests changes.
+  Reviews a pull request with open-code-review, as `relecteur eval` reviews a case: by the
+  repository's REVIEW.md, AGENTS.md and .relecteur/config.toml. Posts the findings on the lines
+  they concern, with a summary in French. It comments only: it neither approves a pull request
+  nor requests changes.
 
 inputs:
   api_key:
@@ -50,8 +51,7 @@ runs:
           // The intent of the change, as `relecteur eval` gives it from a case: title, then description.
           core.setOutput('background', [pr.title, pr.body].map((text) => (text || '').trim()).filter(Boolean).join('\n\n'));
 
-    # open-code-review updates in place the comment that carries its summary marker: this one,
-    # until its own summary replaces it.
+    # `relecteur post-review` updates in place the comment that carries this marker.
     - name: Tell that the review is under way
       if: steps.pr.outputs.review == 'true'
       uses: actions/github-script@v9
@@ -60,7 +60,7 @@ runs:
       with:
         github-token: ${{ inputs.github_token }}
         script: |
-          const marker = '<!-- ocr-summary -->';
+          const marker = '<!-- relecteur -->';
           const body = `${marker}\n⏳ **relecteur** relit cette PR : ses remarques arriveront en commentaire sur les lignes concernées, sans bloquer le merge.`;
           const issue_number = Number(process.env.PR_NUMBER);
           const comments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number, per_page: 100 });
@@ -71,124 +71,44 @@ runs:
             await github.rest.issues.createComment({ ...context.repo, issue_number, body });
           }
 
-    # The instructions and settings of the base branch, whatever the event.
+    # The instructions and settings of the base branch, whatever the event, with the history that
+    # gives the merge base. The token stays out of the repository's git configuration, where the
+    # engine would find it.
     - name: Check out the base branch
       if: steps.pr.outputs.review == 'true'
       uses: actions/checkout@v7
       with:
         ref: ${{ steps.pr.outputs.base_ref }}
+        fetch-depth: 0
+        persist-credentials: false
 
-    - name: Install relecteur
-      if: steps.pr.outputs.review == 'true'
-      shell: bash
-      run: pipx install "$GITHUB_ACTION_PATH"
-
-    - name: Read the review settings
-      id: settings
+    - name: Install relecteur and open-code-review
       if: steps.pr.outputs.review == 'true'
       shell: bash
       run: |
-        relecteur settings >> "$GITHUB_OUTPUT"
-        relecteur rule > "$RUNNER_TEMP/relecteur-rule.json"
+        pipx install "$GITHUB_ACTION_PATH"
+        npm install --global @alibaba-group/open-code-review@1.12.13
 
-    # The engine reaches an OpenAI-compatible endpoint through the relay of `relecteur eval`, which
-    # waits for Albert's rate limit, and asks its gateway up to 0.8.0 for tool calls.
-    - name: Start the relay to the model
-      id: model
-      if: steps.pr.outputs.review == 'true'
-      shell: bash
-      env:
-        MODEL_URL: ${{ steps.settings.outputs.model_url }}
-        PROTOCOL: ${{ steps.settings.outputs.protocol }}
-      run: |
-        if [ "$PROTOCOL" != openai ]; then
-          echo "url=$MODEL_URL" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-        nohup relecteur proxy --port 8765 --model-url "$MODEL_URL" > "$RUNNER_TEMP/relecteur-proxy.log" 2>&1 &
-        for _ in $(seq 30); do
-          if curl --silent --output /dev/null http://127.0.0.1:8765; then
-            echo "url=http://127.0.0.1:8765" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          sleep 1
-        done
-        echo "::error::The relay to $MODEL_URL did not start: $(cat "$RUNNER_TEMP/relecteur-proxy.log")"
-        exit 1
-
-    # The summary below tells how the review ended, and fails the job when the reviewer is at
-    # fault: an engine run that fails does not fail the job by itself.
+    # The engine runs in a step without the token that posts the review.
     - name: Review
       if: steps.pr.outputs.review == 'true'
-      continue-on-error: true
-      uses: alibaba/open-code-review@v1.12.13
-      with:
-        ocr_version: 1.12.13
-        llm_url: ${{ steps.model.outputs.url }}
-        llm_auth_token: ${{ inputs.api_key }}
-        llm_model: ${{ steps.settings.outputs.model }}
-        llm_protocol: ${{ steps.settings.outputs.protocol }}
-        llm_use_anthropic: ${{ steps.settings.outputs.protocol == 'anthropic' }}
-        # Anthropic's API takes an API key in x-api-key, where the engine sends a bearer token.
-        llm_auth_header: ${{ steps.settings.outputs.protocol == 'anthropic' && 'x-api-key' || '' }}
-        # The action disables thinking by default, which `relecteur eval` does not.
-        llm_extra_body: '{}'
-        language: ${{ steps.settings.outputs.language }}
-        effort: ${{ steps.settings.outputs.effort }}
-        review_concurrency: ${{ steps.settings.outputs.concurrency }}
-        max_tokens_budget: ${{ steps.settings.outputs.max_tokens_budget }}
-        rule: ${{ runner.temp }}/relecteur-rule.json
-        background: ${{ steps.pr.outputs.background }}
-        pr_number: ${{ steps.pr.outputs.number }}
-        base_ref: ${{ steps.pr.outputs.base_ref }}
-        head_sha: ${{ steps.pr.outputs.head_sha }}
-        github_token: ${{ inputs.github_token }}
-        # A review called again does not repeat a finding already posted on the same lines.
-        incremental: 'true'
-
-    - name: Summarize the review
-      id: summary
-      if: always() && steps.pr.outputs.review == 'true'
       shell: bash
-      run: |
-        set +e
-        relecteur summary /tmp/ocr-result.json --stderr /tmp/ocr-stderr.log > "$RUNNER_TEMP/relecteur-summary.md"
-        status=$?
-        echo "failed=$([ "$status" -eq 0 ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
-        cat "$RUNNER_TEMP/relecteur-summary.md"
-
-    # The summary replaces the headline of open-code-review's, in English and the same whether
-    # the review was complete or not, and keeps what follows: the findings it could not post on
-    # their lines, and the engine's error.
-    - name: Post the summary
-      if: always() && steps.pr.outputs.review == 'true'
-      uses: actions/github-script@v9
       env:
+        RELECTEUR_API_KEY: ${{ inputs.api_key }}
         PR_NUMBER: ${{ steps.pr.outputs.number }}
-      with:
-        github-token: ${{ inputs.github_token }}
-        script: |
-          const marker = '<!-- ocr-summary -->';
-          const fs = require('fs');
-          const path = `${process.env.RUNNER_TEMP}/relecteur-summary.md`;
-          const headline = (fs.existsSync(path) && fs.readFileSync(path, 'utf8').trim()) ||
-            "❌ **relecteur** n'a pas pu résumer sa review : le job de review échoue pour que le problème soit corrigé.";
-          const issue_number = Number(process.env.PR_NUMBER);
-          const comments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number, per_page: 100 });
-          const summary = comments.reverse().find((comment) => (comment.body || '').includes(marker));
-          if (!summary) {
-            return await github.rest.issues.createComment({ ...context.repo, issue_number, body: `${marker}\n${headline}` });
-          }
-          const lines = summary.body.split('\n');
-          const start = lines.findIndex((line) => line.includes(marker));
-          const index = lines.findIndex((line, i) => i > start && line.trim() && !line.startsWith('<!--'));
-          if (index === -1) lines.push(headline);
-          else lines[index] = headline;
-          await github.rest.issues.updateComment({ ...context.repo, comment_id: summary.id, body: lines.join('\n') });
-
-    - name: Fail when the reviewer kept the review from the pull request
-      if: always() && steps.summary.outputs.failed == 'true'
-      shell: bash
+        HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        BACKGROUND: ${{ steps.pr.outputs.background }}
       run: |
-        echo "::error::$(cat "$RUNNER_TEMP/relecteur-summary.md" 2>/dev/null)"
-        exit 1
+        git fetch --quiet --no-tags origin "pull/$PR_NUMBER/head"
+        relecteur review-pr --base "$(git merge-base HEAD "$HEAD_SHA")" --head "$HEAD_SHA" \
+          --background "$BACKGROUND" --output "$RUNNER_TEMP/relecteur"
+
+    # Fails the job when the reviewer, rather than the model, kept the review from the pull request.
+    - name: Post the review
+      if: always() && steps.pr.outputs.review == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        PR_NUMBER: ${{ steps.pr.outputs.number }}
+        HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+      run: relecteur post-review "$RUNNER_TEMP/relecteur" --pr "$PR_NUMBER" --head "$HEAD_SHA"

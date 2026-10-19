@@ -69,44 +69,36 @@ def review(
     at each resume: the engine then reviews the files left only, its session being kept in the
     home directory of the review.
     """
-    command = ["ocr", "review", "--repo", str(repo), "--from", base, "--to", head]
-    command += ["--effort", settings.effort, "--concurrency", str(settings.concurrency)]
-    command += ["--format", "json", "--audience", "agent"]
-    if settings.max_tokens_budget:
-        command += ["--max-tokens-budget", str(settings.max_tokens_budget)]
-    if background:
-        command += ["--background", background]
     started = time.monotonic()
-    with tempfile.TemporaryDirectory() as home:
-        if instructions:
-            rule = json.dumps(rule_file(instructions), ensure_ascii=False)
-            Path(home, "rule.json").write_text(rule, encoding="utf-8")
-            command += ["--rule", str(Path(home, "rule.json"))]
-        try:
-            if settings.language and (
-                error := _configure(model, home, "language", settings.language)
-            ):
-                return Review(error=error)
-            runs = [_run(command, model, home)]
-            for attempt in range(1, _RESUMES + 1):
-                if not (session := session_to_resume(runs[-1].stdout)):
-                    break
-                pause = _FIRST_RESUME_PAUSE_SECONDS * 2 ** (attempt - 1)
-                print(
-                    f"  cut short, resuming in {pause} s ({attempt} of {_RESUMES})",
-                    file=sys.stderr,
-                    flush=True,
-                )
-                time.sleep(pause)
-                runs.append(_run([*command, "--resume", session], model, home))
-        except FileNotFoundError:
-            return Review(error=f"open-code-review is not installed (ocr): {_INSTALL_COMMAND}")
+    try:
+        runs = _runs(repo, base, head, model, settings, background, instructions)
+    except _EngineError as error:
+        return Review(error=str(error))
     reviews = [parse(run.stdout, run.stderr, run.returncode) for run in runs]
     return replace(
         reviews[-1],
         tokens=sum(review.tokens or 0 for review in reviews),
         seconds=time.monotonic() - started,
     )
+
+
+def pull_request_output(
+    repo: Path,
+    base: str,
+    head: str,
+    model: Model,
+    settings: Settings,
+    background: str | None = None,
+    instructions: str | None = None,
+) -> tuple[str, str]:
+    """Reviews a pull request in CI as `review` does, and gives what `pull_request_review` reads:
+    the engine's output after its last resume, which holds the findings of every run, and its
+    error output."""
+    try:
+        runs = _runs(repo, base, head, model, settings, background, instructions)
+    except _EngineError as error:
+        return "", str(error)
+    return runs[-1].stdout, "".join(run.stderr for run in runs)
 
 
 def rule_file(instructions: str | None) -> dict:
@@ -146,6 +138,48 @@ def session_to_resume(stdout: str) -> str | None:
         return output.get("session_id") if transient else None
     except (json.JSONDecodeError, KeyError, TypeError):
         return None
+
+
+class _EngineError(Exception):
+    pass
+
+
+def _runs(repo, base, head, model, settings, background, instructions):
+    """The engine's run, then its resumes while the model's rate limit or timeouts cut it short."""
+    command = ["ocr", "review", "--repo", str(repo), "--from", base, "--to", head]
+    command += ["--effort", settings.effort, "--concurrency", str(settings.concurrency)]
+    command += ["--format", "json", "--audience", "agent"]
+    if settings.max_tokens_budget:
+        command += ["--max-tokens-budget", str(settings.max_tokens_budget)]
+    if background:
+        command += ["--background", background]
+    with tempfile.TemporaryDirectory() as home:
+        if instructions:
+            rule = json.dumps(rule_file(instructions), ensure_ascii=False)
+            Path(home, "rule.json").write_text(rule, encoding="utf-8")
+            command += ["--rule", str(Path(home, "rule.json"))]
+        try:
+            if settings.language and (
+                error := _configure(model, home, "language", settings.language)
+            ):
+                raise _EngineError(error)
+            runs = [_run(command, model, home)]
+            for attempt in range(1, _RESUMES + 1):
+                if not (session := session_to_resume(runs[-1].stdout)):
+                    break
+                pause = _FIRST_RESUME_PAUSE_SECONDS * 2 ** (attempt - 1)
+                print(
+                    f"  cut short, resuming in {pause} s ({attempt} of {_RESUMES})",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                time.sleep(pause)
+                runs.append(_run([*command, "--resume", session], model, home))
+        except FileNotFoundError:
+            raise _EngineError(
+                f"open-code-review is not installed (ocr): {_INSTALL_COMMAND}"
+            ) from None
+    return runs
 
 
 def _configure(model, home, key, value):
@@ -203,9 +237,7 @@ def parse(stdout: str, stderr: str, returncode: int) -> Review:
             )
         if output["status"] not in _COMPLETE_STATUSES:
             return replace(_incomplete_review(output), tokens=tokens)
-        return Review(
-            findings=tuple(_finding(comment) for comment in output["comments"]), tokens=tokens
-        )
+        return Review(findings=_findings(output["comments"]), tokens=tokens)
     except (AttributeError, KeyError, TypeError) as error:
         return Review(error=f"unexpected open-code-review output: {error!r}")
 
@@ -214,7 +246,7 @@ def pull_request_review(stdout: str, stderr: str) -> PullRequestReview:
     """Turns the output of `ocr review --format json` in CI into a `PullRequestReview`.
 
     Unlike `parse`, it keeps the findings of a review that did not cover every file: the review
-    in CI published them.
+    in CI publishes them.
     """
     try:
         output = json.loads(stdout)
@@ -222,13 +254,13 @@ def pull_request_review(stdout: str, stderr: str) -> PullRequestReview:
         return PullRequestReview(Status.FAILED, cause=_last_line(stderr))
     try:
         if output["status"] in _COMPLETE_STATUSES:
-            return PullRequestReview(Status.REVIEWED, len(output["comments"]))
+            return PullRequestReview(Status.REVIEWED, _findings(output["comments"]))
         if output["status"] == "skipped":
             return PullRequestReview(Status.NOTHING_TO_REVIEW)
         coverage = (output.get("manifest") or {}).get("coverage", {})
         return PullRequestReview(
             _incomplete_review_status(output),
-            len(output.get("comments") or []),
+            _findings(output.get("comments") or []),
             files=len(coverage.get("selected", [])),
             unreviewed=len(coverage.get("failed", [])),
             cause=_failure_causes(output),
@@ -251,6 +283,10 @@ def _incomplete_review_status(output):
 
 def _last_line(stderr):
     return stderr.strip().splitlines()[-1] if stderr.strip() else "no output"
+
+
+def _findings(comments):
+    return tuple(_finding(comment) for comment in comments)
 
 
 def _finding(comment):

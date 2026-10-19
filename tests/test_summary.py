@@ -3,9 +3,10 @@ from pathlib import Path
 import pytest
 
 from relecteur import open_code_review, summary
-from relecteur.review import PullRequestReview, Status
+from relecteur.review import Finding, PullRequestReview, Status
 
 OUTPUTS = Path(__file__).parent / "fixtures" / "open_code_review"
+FINDING = Finding("app/models/user.rb", 12, 12, "Remarque")
 
 
 def summarized(output, stderr=""):
@@ -30,7 +31,7 @@ def test_a_complete_review_with_findings_points_to_them_and_tells_they_do_not_bl
 
 
 def test_a_single_finding_is_told_in_the_singular():
-    assert summary.text(PullRequestReview(Status.REVIEWED, findings=1)) == (
+    assert summary.text(PullRequestReview(Status.REVIEWED, findings=(FINDING,))) == (
         "🔍 **relecteur** a relu cette PR : 1 remarque, en commentaire sur la ligne concernée. "
         "Elle ne bloque pas le merge."
     )
@@ -120,8 +121,11 @@ def test_an_engine_that_wrote_no_review_fails_it_with_its_last_message(stderr, c
 @pytest.mark.parametrize(
     ("findings", "told"),
     [
-        (0, "Rien à signaler dans la partie relue."),
-        (1, "Sa remarque, en commentaire sur la ligne concernée, porte sur la partie relue."),
+        ((), "Rien à signaler dans la partie relue."),
+        (
+            (FINDING,),
+            "Sa remarque, en commentaire sur la ligne concernée, porte sur la partie relue.",
+        ),
     ],
 )
 def test_a_review_cut_short_tells_what_it_found_in_the_part_it_reviewed(findings, told):
@@ -137,7 +141,9 @@ def test_a_review_cut_short_tells_what_it_found_in_the_part_it_reviewed(findings
 
 
 def test_an_unfinished_review_tells_the_findings_it_published_on_the_part_it_reviewed():
-    review = PullRequestReview(Status.FAILED, findings=2, files=5, unreviewed=1, cause="budget")
+    review = PullRequestReview(
+        Status.FAILED, findings=(FINDING, FINDING), files=5, unreviewed=1, cause="budget"
+    )
 
     assert summary.text(review) == (
         "❌ **relecteur** n'a pas terminé sa review : 1 fichier sur 5 non relu (`budget`). Ses 2 "

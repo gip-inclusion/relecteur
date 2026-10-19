@@ -7,7 +7,7 @@ from contextlib import contextmanager, suppress
 from dataclasses import replace
 from pathlib import Path
 
-from relecteur import config, judges, open_code_review, proxy, repository, summary
+from relecteur import config, github, judges, open_code_review, proxy, repository, summary
 from relecteur.cases import InvalidCases, load_cases
 from relecteur.config import InvalidConfig
 from relecteur.model import DEFAULT_NAME, DEFAULT_URL, MissingApiKey, Model
@@ -80,20 +80,24 @@ def main(argv: list[str] | None = None) -> int:
         help="print the engine rule file that combines the repository's REVIEW.md and AGENTS.md",
     )
 
-    commands.add_parser(
-        "settings",
-        help=f"print the engine and model settings of {CONFIG} as name=value lines, for CI",
+    review_pr_command = commands.add_parser(
+        "review-pr", help="review a pull request in CI, by the repository's rules and settings"
+    )
+    review_pr_command.add_argument("--base", required=True, help="the pull request's merge base")
+    review_pr_command.add_argument("--head", required=True, help="the pull request's last commit")
+    review_pr_command.add_argument(
+        "--background", help="what the pull request intends: its title, then its description"
+    )
+    review_pr_command.add_argument(
+        "--output", type=Path, required=True, help="directory to write the review to"
     )
 
-    summary_command = commands.add_parser(
-        "summary", help="print the summary of a review in CI, for its pull request"
+    post_review_command = commands.add_parser(
+        "post-review", help="post a review of `relecteur review-pr` on its pull request"
     )
-    summary_command.add_argument(
-        "output", type=Path, help="the output of `ocr review --format json`, missing if none"
-    )
-    summary_command.add_argument(
-        "--stderr", type=Path, help="the engine's error output, telling why it wrote no review"
-    )
+    post_review_command.add_argument("output", type=Path, help="directory of the review")
+    post_review_command.add_argument("--pr", type=int, required=True, help="pull request number")
+    post_review_command.add_argument("--head", required=True, help="the commit reviewed")
 
     proxy_command = commands.add_parser("proxy", help="relay the model endpoint for an engine run")
     proxy_command.add_argument("--port", type=int, default=8765, help="local port (default: 8765)")
@@ -106,10 +110,10 @@ def main(argv: list[str] | None = None) -> int:
         return _validate(arguments.paths)
     if arguments.command == "rule":
         return _rule()
-    if arguments.command == "settings":
-        return _settings()
-    if arguments.command == "summary":
-        return _summary(arguments.output, arguments.stderr)
+    if arguments.command == "review-pr":
+        return _review_pr(arguments)
+    if arguments.command == "post-review":
+        return _post_review(arguments)
     if arguments.command == "score":
         return _score(arguments)
     if arguments.command == "proxy":
@@ -223,21 +227,47 @@ def _rule():
     return 0
 
 
-def _settings():
+def _review_pr(arguments):
+    """Reviews the pull request as `relecteur eval` reviews a case, and writes the engine's output
+    for `relecteur post-review`, which alone holds the token that posts it: the engine never
+    shares a process with it."""
     try:
-        settings = config.load(repository.root(Path.cwd()) / CONFIG)
-    except (InvalidConfig, repository.RepositoryError) as error:
-        print(error, file=sys.stderr)
-        return INVALID_INPUT
-    for name, value in config.ci_settings(settings).items():
-        print(f"{name}={value}")
+        repo = repository.root(Path.cwd())
+        settings = config.load(repo / CONFIG)
+        reviewer = settings.model
+        model = Model.reviewer(reviewer.url, reviewer.name, reviewer.protocol, os.environ)
+    except (InvalidConfig, MissingApiKey, repository.RepositoryError) as error:
+        stdout, stderr = "", f"{error}\n"
+    else:
+        with _reached(model) as engine_model:
+            stdout, stderr = open_code_review.pull_request_output(
+                repo,
+                arguments.base,
+                arguments.head,
+                engine_model,
+                settings.engine,
+                arguments.background,
+                repository.reviewer_instructions(repo),
+            )
+    arguments.output.mkdir(parents=True, exist_ok=True)
+    (arguments.output / "review.json").write_text(stdout, encoding="utf-8")
+    (arguments.output / "review.log").write_text(stderr, encoding="utf-8")
+    print(stderr, file=sys.stderr, end="")
     return 0
 
 
-def _summary(output, stderr):
-    """Prints the summary of the review, and fails when the reviewer, rather than the model,
+def _post_review(arguments):
+    """Posts the review on its pull request, and fails when the reviewer, rather than the model,
     kept it from reviewing the pull request."""
-    review = open_code_review.pull_request_review(_content(output), _content(stderr))
+    review = open_code_review.pull_request_review(
+        _content(arguments.output / "review.json"), _content(arguments.output / "review.log")
+    )
+    pull_request = github.PullRequest(arguments.pr, os.environ)
+    inline, elsewhere = github.placed(
+        review.findings, pull_request.diff_lines(), pull_request.commented_lines()
+    )
+    pull_request.comment(arguments.head, inline)
+    pull_request.summarize(github.summary_body(summary.text(review), elsewhere))
     print(summary.text(review))
     return 1 if review.failed else 0
 
