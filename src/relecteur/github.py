@@ -94,7 +94,7 @@ class PullRequest:
                 {
                     "commit_id": head,
                     "event": "COMMENT",
-                    "body": "Remarques de **relecteur**, qui ne bloquent pas le merge.",
+                    "body": "",
                     "comments": [_review_comment(finding) for finding in findings],
                 },
             )
