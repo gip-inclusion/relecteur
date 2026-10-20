@@ -61,7 +61,7 @@ runs:
         github-token: ${{ inputs.github_token }}
         script: |
           const marker = '<!-- relecteur -->';
-          const body = `${marker}\n⏳ **relecteur** relit cette PR : ses remarques arriveront en commentaire sur les lignes concernées, sans bloquer le merge.`;
+          const body = `${marker}\n⏳ **relecteur** relit cette PR : ses remarques arriveront en commentaire sur les lignes concernées.`;
           const issue_number = Number(process.env.PR_NUMBER);
           const comments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number, per_page: 100 });
           const summary = comments.reverse().find((comment) => (comment.body || '').includes(marker));

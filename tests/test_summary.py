@@ -22,18 +22,16 @@ def test_a_complete_review_without_findings_says_the_pull_request_was_reviewed()
     )
 
 
-def test_a_complete_review_with_findings_points_to_them_and_tells_they_do_not_block():
+def test_a_complete_review_with_findings_points_to_them():
     assert summarized("with-comments.json") == (
-        "🔍 **relecteur** a relu cette PR : 2 remarques, en commentaire sur les lignes "
-        "concernées. Elles ne bloquent pas le merge.",
+        "🔍 **relecteur** a relu cette PR : 2 remarques, en commentaire sur les lignes concernées.",
         False,
     )
 
 
 def test_a_single_finding_is_told_in_the_singular():
     assert summary.text(PullRequestReview(Status.REVIEWED, findings=(FINDING,))) == (
-        "🔍 **relecteur** a relu cette PR : 1 remarque, en commentaire sur la ligne concernée. "
-        "Elle ne bloque pas le merge."
+        "🔍 **relecteur** a relu cette PR : 1 remarque, en commentaire sur la ligne concernée."
     )
 
 

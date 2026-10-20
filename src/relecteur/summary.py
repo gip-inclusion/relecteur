@@ -51,11 +51,8 @@ def text(review: PullRequestReview) -> str:
 
 def _findings(count):
     if count == 1:
-        return "1 remarque, en commentaire sur la ligne concernée. Elle ne bloque pas le merge."
-    return (
-        f"{count} remarques, en commentaire sur les lignes concernées. Elles ne bloquent pas "
-        "le merge."
-    )
+        return "1 remarque, en commentaire sur la ligne concernée."
+    return f"{count} remarques, en commentaire sur les lignes concernées."
 
 
 def _found_in_part(count):
