@@ -231,11 +231,10 @@ the real home directory.
 The reviewer follows the repository's `REVIEW.md`, how to review, then its `AGENTS.md`, the
 code conventions, as they are in the working tree: today's instructions are evaluated on past
 pull requests. The engine applies one rule per file, so `relecteur eval` combines the two files
-into a single rule on every file. The rule joins the engine's own rule for Python files, and
-replaces it elsewhere: the engine's rules for a few file types (Maven, Gradle, package.json…),
-and the default rule every other file gets, which leads the reviewer to remarks on naming and
-test coverage. With one of the two files, the rule is that file; with neither, the engine
-reviews by its own rules.
+into a single rule on every file. The rule replaces the engine's own rules: one per language or
+file type (Java, Go, TypeScript, YAML…), and the default rule every other file gets, which leads
+the reviewer to remarks on naming and test coverage. With one of the two files, the rule is that
+file; with neither, the engine reviews by its own rules.
 
 `relecteur rule` prints the rule file the engine receives, in its format, with the `include` and
 `exclude` patterns of the configuration below; with neither file, its rule is empty, under which
