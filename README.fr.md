@@ -1,0 +1,122 @@
+# relecteur
+
+relecteur fait relire les pull requests d'un dépôt par un reviewer automatique qui s'appuie sur
+[open-code-review](https://github.com/alibaba/open-code-review), et mesure la qualité de ce
+reviewer sur d'anciennes pull requests.
+
+En CI, une action GitHub relit chaque nouvelle pull request et commente les lignes concernées. En
+local, un harnais d'évaluation rejoue des pull requests passées avec le même reviewer et vérifie
+qu'il se comporte comme attendu : il doit se taire sur une pull request approuvée sans le moindre
+commentaire, et signaler un défaut qu'il a fallu corriger, après le merge ou pendant la review. Le
+harnais mesure ce qui tourne en CI : même moteur, mêmes règles, mêmes réglages, même modèle.
+
+relecteur ne fait aucune hypothèse sur le langage, le framework ou le métier du dépôt : c'est le
+dépôt qui apporte ses cas et ses instructions.
+
+## Démarrage rapide
+
+### Faire relire les pull requests d'un dépôt
+
+Pas besoin d'écrire de cas d'évaluation pour faire relire les pull requests. Avec
+[Albert](https://guides.ia.numerique.gouv.fr/albert-api), qui sert le modèle par défaut (DeepSeek),
+les étapes ci-dessous suffisent. Pour un autre modèle accessible par une API compatible OpenAI ou
+par l'API d'Anthropic, indiquez-le en plus dans un fichier `.relecteur/config.toml` (voir
+[Modèle](docs/configuration.fr.md#modèle)). Seuls les dépôts publics sont pris en charge pour
+l'instant.
+
+1. Créez dans le dépôt un secret `RELECTEUR_API_KEY` contenant la clé d'API du modèle. Pour le
+   modèle par défaut, vous pouvez en générer une sur
+   [Albert](https://guides.ia.numerique.gouv.fr/albert-api/compte-and-usage/api-keys).
+2. Ajoutez ce workflow dans `.github/workflows/review.yml`, en remplaçant `<commit>` par le SHA
+   complet du dernier commit de la branche `main` de relecteur, puis mergez-le :
+
+   ```yaml
+   name: Review
+
+   on:
+     pull_request:
+       types: [opened, ready_for_review]
+     issue_comment:
+       types: [created]
+
+   permissions:
+     contents: read
+     pull-requests: write
+
+   jobs:
+     relecteur:
+       name: Relecteur
+       # Pull requests of bots are never reviewed. Those of forks get no secret: a comment of the
+       # team reviews them.
+       if: >-
+         (github.event_name == 'pull_request' && !github.event.pull_request.draft
+           && github.event.pull_request.user.type != 'Bot'
+           && github.event.pull_request.head.repo.full_name == github.repository)
+         || (github.event_name == 'issue_comment' && github.event.issue.pull_request
+           && github.event.issue.state == 'open' && github.event.issue.user.type != 'Bot'
+           && github.event.comment.user.type != 'Bot'
+           && contains(github.event.comment.body, '@relecteur'))
+       runs-on: ubuntu-latest
+       timeout-minutes: 180
+       concurrency:
+         group: relecteur-${{ github.event.pull_request.number || github.event.issue.number }}
+       steps:
+         - uses: gip-inclusion/relecteur@<commit>
+           with:
+             api_key: ${{ secrets.RELECTEUR_API_KEY }}
+   ```
+
+3. Si vous le souhaitez, ajoutez à la racine un `REVIEW.md` qui précise ce que relecteur doit
+   relever (voir [Instructions du reviewer](docs/configuration.fr.md#instructions-du-reviewer)).
+
+relecteur relit chaque pull request à son ouverture ou à sa sortie de brouillon, commente
+directement les lignes concernées et publie un résumé. Pour relancer une review, il suffit
+d'écrire `@relecteur` dans un commentaire. Le détail est dans [Review en CI](docs/ci.fr.md).
+
+### Évaluer relecteur sur d'anciennes pull requests
+
+1. Installez `relecteur` et le moteur, puis renseignez `RELECTEUR_API_KEY` (voir
+   [Prérequis](docs/evaluation.fr.md#prérequis) et [Installation](docs/evaluation.fr.md#installation)).
+2. Écrivez quelques cas dans `.relecteur/cases` (voir [Cas](docs/evaluation.fr.md#cas)), ou
+   faites-en rédiger par un agent (voir
+   [Rédiger des cas avec un agent](docs/evaluation.fr.md#rédiger-des-cas-avec-un-agent)).
+3. Lancez `relecteur validate` pour vérifier les cas, puis `relecteur eval` pour les rejouer.
+
+## Ce qu'apporte relecteur
+
+open-code-review fait la review : il relit le diff, en local ou en CI, et commente les lignes
+concernées. relecteur y ajoute :
+
+- **la mesure du reviewer sur votre dépôt** : `relecteur eval` lui fait relire d'anciennes pull
+  requests du dépôt dont on connaît la bonne réponse, se taire ou signaler un défaut précis, et un
+  juge note ses remarques (voir [Cas](docs/evaluation.fr.md#cas) et
+  [Juge](docs/evaluation.fr.md#juge)). On peut ainsi comparer deux modèles, ou tester une consigne
+  avant de la déployer ;
+- **une relecture selon les consignes du dépôt** : open-code-review prend ses consignes dans un
+  fichier de règles à son format, et applique sinon ses propres règles, dont une règle par défaut
+  qui pousse à commenter le nommage et la couverture de tests. relecteur construit ce fichier à
+  partir de `REVIEW.md` et `AGENTS.md`, sans rien d'autre à maintenir (voir
+  [Instructions du reviewer](docs/configuration.fr.md#instructions-du-reviewer)) ;
+- **une review qui va au bout malgré les limites du modèle** : open-code-review réessaie une
+  requête refusée pendant quelques secondes, puis abandonne ses fichiers. Le relais de relecteur
+  la renvoie une fois la limite de débit passée, et une review écourtée malgré tout reprend sur
+  les fichiers restants. Pour l'instant, le relais rétablit aussi les appels d'outils que la
+  passerelle d'Albert désactive (voir
+  [Le relais vers Albert](docs/configuration.fr.md#le-relais-vers-albert)) ;
+- **en CI, la configuration évaluée** : l'action GitHub d'open-code-review prend le modèle et les
+  réglages en paramètres du workflow, à recopier depuis ce qu'on a évalué. Celle de relecteur les
+  lit dans `.relecteur/config.toml`, comme `relecteur eval` ;
+- **un résumé qui dit comment la review s'est terminée** : quand le moteur échoue, l'action
+  d'open-code-review fait échouer le job sans rien poster, et sinon son résumé ne dit pas si des
+  fichiers sont restés sans review. Celui de relecteur dit si la review est complète, quels
+  fichiers n'ont pas été relus et comment la relancer, et le job n'échoue que lorsque le reviewer
+  est en cause, pas quand le modèle est indisponible (voir [Review en CI](docs/ci.fr.md)).
+
+## Documentation
+
+- [Review en CI](docs/ci.fr.md) : quand l'action relit, l'appel par `@relecteur`, le résumé et le
+  statut du job.
+- [Évaluation](docs/evaluation.fr.md) : prérequis, installation, cas, commandes et juge.
+- [Configuration](docs/configuration.fr.md) : modèle, instructions du reviewer, réglages de
+  `.relecteur/config.toml` et relais vers Albert.
+- [Contribuer](CONTRIBUTING.fr.md) : développement et tests.
