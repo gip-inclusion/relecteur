@@ -7,8 +7,7 @@ reviewer sur d'anciennes PR.
 En CI, une action GitHub relit chaque nouvelle PR et commente les lignes concernées. En local, un
 harnais d'évaluation fait relire d'anciennes PR au même reviewer et vérifie qu'il se comporte
 comme attendu : il doit se taire sur une PR approuvée sans le moindre commentaire, et signaler un
-défaut qu'il a fallu corriger, après le merge ou pendant la review. Le harnais mesure ce qui
-tourne en CI : même moteur, mêmes règles, mêmes réglages, même modèle.
+défaut qu'il a fallu corriger, après le merge ou pendant la review.
 
 relecteur fonctionne avec n'importe quel langage, framework ou métier : c'est le dépôt qui fournit
 ses cas et ses consignes.
