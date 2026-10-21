@@ -143,10 +143,7 @@ def test_the_rule_file_applies_the_instructions_to_every_file_and_selects_the_fi
     rule = open_code_review.rule_file("Cite le code.", ["**/*_spec.rb"], ["db/migrate/**"])
 
     assert rule == {
-        "rules": [
-            {"path": "**/*.py", "rule": "Cite le code.", "merge_system_rule": True},
-            {"path": "**/*", "rule": "Cite le code."},
-        ],
+        "rules": [{"path": "**/*", "rule": "Cite le code."}],
         "include": ["**/*_spec.rb"],
         "exclude": ["db/migrate/**"],
     }

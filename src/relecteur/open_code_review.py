@@ -110,17 +110,13 @@ def rule_file(
     """The engine's rule file applying `instructions` to every file, among the files that
     `include` and `exclude` select.
 
-    The engine has a rule of its own for Python, which the instructions join, and for a few other
-    file types (Maven, Gradle, package.json…); the instructions replace those, and the default rule
-    every other file gets, which leads the reviewer to remarks on naming and test coverage. Without
-    instructions, the engine keeps its own rules.
+    The instructions replace the engine's own rules: one per language or file type (Java, Go,
+    TypeScript, YAML…), and the default rule every other file gets, which leads the reviewer to
+    remarks on naming and test coverage. Without instructions, the engine keeps its own rules.
     """
     rule: dict = {"rules": []}
     if instructions:
-        rule["rules"] = [
-            {"path": "**/*.py", "rule": instructions, "merge_system_rule": True},
-            {"path": "**/*", "rule": instructions},
-        ]
+        rule["rules"] = [{"path": "**/*", "rule": instructions}]
     if include:
         rule["include"] = list(include)
     if exclude:
