@@ -16,16 +16,15 @@ ses cas et ses consignes.
 
 ### Faire relire les pull requests d'un dépôt
 
-Pas besoin d'écrire de cas d'évaluation pour faire relire les PR. Avec
-[Albert](https://guides.ia.numerique.gouv.fr/albert-api), qui sert le modèle par défaut
-(`deepseek-v4-flash-0731`), les étapes ci-dessous suffisent. Pour un autre modèle accessible par une API compatible OpenAI ou
-par l'API d'Anthropic, indiquez-le en plus dans un fichier `.relecteur/config.toml` (voir
-[Modèle](docs/configuration.fr.md#modèle)). Seuls les dépôts publics sont pris en charge pour
+Pas besoin de cas d'évaluation pour commencer. Seuls les dépôts publics sont pris en charge pour
 l'instant.
 
-1. Créez dans le dépôt un secret `RELECTEUR_API_KEY` contenant la clé d'API du modèle. Pour le
-   modèle par défaut, vous pouvez en générer une sur
-   [Albert](https://guides.ia.numerique.gouv.fr/albert-api/compte-and-usage/api-keys).
+1. Créez dans le dépôt un secret `RELECTEUR_API_KEY` avec la clé d'API du modèle. Par défaut,
+   relecteur utilise `deepseek-v4-flash-0731`, servi par
+   [Albert](https://guides.ia.numerique.gouv.fr/albert-api), où vous pouvez
+   [générer une clé](https://guides.ia.numerique.gouv.fr/albert-api/compte-and-usage/api-keys).
+   Pour choisir un autre modèle, accessible par une API compatible OpenAI ou par l'API
+   d'Anthropic, voir [Modèle](docs/configuration.fr.md#modèle).
 2. Copiez ce workflow dans `.github/workflows/review.yml` et mergez-le. Remplacez d'abord
    `<commit>` par le SHA complet du dernier commit de `main` de relecteur :
 
