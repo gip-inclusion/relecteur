@@ -1,23 +1,23 @@
 # relecteur
 
-relecteur fait relire les pull requests d'un dépôt par un reviewer automatique qui s'appuie sur
-[open-code-review](https://github.com/alibaba/open-code-review), et mesure la qualité de ce
-reviewer sur d'anciennes pull requests.
+relecteur fait relire les pull requests (PR) d'un dépôt par un reviewer automatique qui s'appuie
+sur [open-code-review](https://github.com/alibaba/open-code-review), et mesure la qualité de ce
+reviewer sur d'anciennes PR.
 
-En CI, une action GitHub relit chaque nouvelle pull request et commente les lignes concernées. En
-local, un harnais d'évaluation rejoue des pull requests passées avec le même reviewer et vérifie
-qu'il se comporte comme attendu : il doit se taire sur une pull request approuvée sans le moindre
-commentaire, et signaler un défaut qu'il a fallu corriger, après le merge ou pendant la review. Le
-harnais mesure ce qui tourne en CI : même moteur, mêmes règles, mêmes réglages, même modèle.
+En CI, une action GitHub relit chaque nouvelle PR et commente les lignes concernées. En local, un
+harnais d'évaluation fait relire d'anciennes PR au même reviewer et vérifie qu'il se comporte
+comme attendu : il doit se taire sur une PR approuvée sans le moindre commentaire, et signaler un
+défaut qu'il a fallu corriger, après le merge ou pendant la review. Le harnais mesure ce qui
+tourne en CI : même moteur, mêmes règles, mêmes réglages, même modèle.
 
-relecteur ne fait aucune hypothèse sur le langage, le framework ou le métier du dépôt : c'est le
-dépôt qui apporte ses cas et ses instructions.
+relecteur fonctionne avec n'importe quel langage, framework ou métier : c'est le dépôt qui fournit
+ses cas et ses consignes.
 
 ## Démarrage rapide
 
 ### Faire relire les pull requests d'un dépôt
 
-Pas besoin d'écrire de cas d'évaluation pour faire relire les pull requests. Avec
+Pas besoin d'écrire de cas d'évaluation pour faire relire les PR. Avec
 [Albert](https://guides.ia.numerique.gouv.fr/albert-api), qui sert le modèle par défaut (DeepSeek),
 les étapes ci-dessous suffisent. Pour un autre modèle accessible par une API compatible OpenAI ou
 par l'API d'Anthropic, indiquez-le en plus dans un fichier `.relecteur/config.toml` (voir
@@ -27,8 +27,8 @@ l'instant.
 1. Créez dans le dépôt un secret `RELECTEUR_API_KEY` contenant la clé d'API du modèle. Pour le
    modèle par défaut, vous pouvez en générer une sur
    [Albert](https://guides.ia.numerique.gouv.fr/albert-api/compte-and-usage/api-keys).
-2. Ajoutez ce workflow dans `.github/workflows/review.yml`, en remplaçant `<commit>` par le SHA
-   complet du dernier commit de la branche `main` de relecteur, puis mergez-le :
+2. Copiez ce workflow dans `.github/workflows/review.yml` et mergez-le. Remplacez d'abord
+   `<commit>` par le SHA complet du dernier commit de `main` de relecteur :
 
    ```yaml
    name: Review
@@ -69,9 +69,9 @@ l'instant.
 3. Si vous le souhaitez, ajoutez à la racine un `REVIEW.md` qui précise ce que relecteur doit
    relever (voir [Instructions du reviewer](docs/configuration.fr.md#instructions-du-reviewer)).
 
-relecteur relit chaque pull request à son ouverture ou à sa sortie de brouillon, commente
-directement les lignes concernées et publie un résumé. Pour relancer une review, il suffit
-d'écrire `@relecteur` dans un commentaire. Le détail est dans [Review en CI](docs/ci.fr.md).
+relecteur relit chaque PR à son ouverture, ou quand elle sort de brouillon. Il commente les lignes
+concernées et publie un résumé. Pour relancer une review, écrivez `@relecteur` dans un
+commentaire. Plus de détails dans [Review en CI](docs/ci.fr.md).
 
 ### Évaluer relecteur sur d'anciennes pull requests
 
@@ -80,18 +80,17 @@ d'écrire `@relecteur` dans un commentaire. Le détail est dans [Review en CI](d
 2. Écrivez quelques cas dans `.relecteur/cases` (voir [Cas](docs/evaluation.fr.md#cas)), ou
    faites-en rédiger par un agent (voir
    [Rédiger des cas avec un agent](docs/evaluation.fr.md#rédiger-des-cas-avec-un-agent)).
-3. Lancez `relecteur validate` pour vérifier les cas, puis `relecteur eval` pour les rejouer.
+3. Lancez `relecteur validate` pour vérifier les cas, puis `relecteur eval` pour les faire relire.
 
 ## Ce qu'apporte relecteur
 
 open-code-review fait la review : il relit le diff, en local ou en CI, et commente les lignes
 concernées. relecteur y ajoute :
 
-- **la mesure du reviewer sur votre dépôt** : `relecteur eval` lui fait relire d'anciennes pull
-  requests du dépôt dont on connaît la bonne réponse, se taire ou signaler un défaut précis, et un
-  juge note ses remarques (voir [Cas](docs/evaluation.fr.md#cas) et
-  [Juge](docs/evaluation.fr.md#juge)). On peut ainsi comparer deux modèles, ou tester une consigne
-  avant de la déployer ;
+- **la mesure du reviewer sur votre dépôt** : `relecteur eval` lui fait relire d'anciennes PR du
+  dépôt dont on connaît la bonne réponse, se taire ou signaler un défaut précis, et un juge note
+  ses remarques (voir [Cas](docs/evaluation.fr.md#cas) et [Juge](docs/evaluation.fr.md#juge)). On
+  peut ainsi comparer deux modèles, ou tester une consigne avant de la déployer ;
 - **une relecture selon les consignes du dépôt** : open-code-review prend ses consignes dans un
   fichier de règles à son format, et applique sinon ses propres règles, dont une règle par défaut
   qui pousse à commenter le nommage et la couverture de tests. relecteur construit ce fichier à
@@ -114,9 +113,9 @@ concernées. relecteur y ajoute :
 
 ## Documentation
 
-- [Review en CI](docs/ci.fr.md) : quand l'action relit, l'appel par `@relecteur`, le résumé et le
-  statut du job.
-- [Évaluation](docs/evaluation.fr.md) : prérequis, installation, cas, commandes et juge.
-- [Configuration](docs/configuration.fr.md) : modèle, instructions du reviewer, réglages de
-  `.relecteur/config.toml` et relais vers Albert.
+- [Review en CI](docs/ci.fr.md) : quand l'action relit, `@relecteur`, le résumé et le statut du
+  job.
+- [Évaluation](docs/evaluation.fr.md) : installation, cas, commandes et juge.
+- [Configuration](docs/configuration.fr.md) : modèle, consignes du reviewer, réglages et relais
+  vers Albert.
 - [Contribuer](CONTRIBUTING.fr.md) : développement et tests.
