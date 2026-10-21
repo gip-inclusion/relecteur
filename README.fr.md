@@ -74,10 +74,9 @@ commentaire. Plus de détails dans [Review en CI](docs/ci.fr.md).
 
 ### Évaluer relecteur sur d'anciennes pull requests
 
-1. Installez le moteur et `relecteur`, puis renseignez la clé d'API du modèle. Il vous faut
-   Python 3.11, git 2.41 et [pipx](https://pipx.pypa.io) (voir
-   [Prérequis](docs/evaluation.fr.md#prérequis)). Avec le modèle et le juge par défaut, cette
-   seule clé suffit :
+1. Installez le moteur et `relecteur`, puis mettez la clé d'API du modèle dans
+   `RELECTEUR_API_KEY`. Il vous faut Python 3.11, git 2.41 et [pipx](https://pipx.pypa.io) (voir
+   [Prérequis](docs/evaluation.fr.md#prérequis)) :
 
    ```sh
    npm install --global @alibaba-group/open-code-review@1.12.13
@@ -85,6 +84,10 @@ commentaire. Plus de détails dans [Review en CI](docs/ci.fr.md).
    pipx install --editable ./relecteur
    export RELECTEUR_API_KEY=<votre clé>
    ```
+
+   Avec les réglages par défaut, cette clé sert aussi au juge, qui note les remarques avec un
+   modèle d'Albert. Si le reviewer n'est pas sur Albert, ou pour changer de juge, voir
+   [Juge](docs/evaluation.fr.md#juge).
 
 2. Créez un dossier `.relecteur/cases` à la racine du dépôt et écrivez-y quelques cas (voir
    [Cas](docs/evaluation.fr.md#cas)), ou faites-en rédiger par un agent (voir

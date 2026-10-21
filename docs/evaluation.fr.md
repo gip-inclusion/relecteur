@@ -166,20 +166,31 @@ soumise au juge. Le juge donne ensuite la probabilité que la remarque décrive 
 d'un seuil, le défaut est trouvé. Une remarque ne trouve qu'un défaut, celui qu'elle décrit le plus
 probablement.
 
-Le juge se choisit dans la table `[judge]` de `.relecteur/config.toml` (voir
-[Réglages](configuration.fr.md#réglages)). Ces options de `relecteur eval` et `relecteur score` la
-remplacent :
+Par défaut, le juge est `albert`, avec `deepseek-v4-flash-0731`. Pour en changer, ajoutez une
+table `[judge]` à `.relecteur/config.toml` :
 
-| Réglage | Option | Défaut | |
-| --- | --- | --- | --- |
-| `name` | `--judge` | `albert` | `albert` interroge un modèle d'Albert ; `jev` interroge [Jev](https://typesafe.ai), le modèle de jugement de TypeSafe. |
-| `model` | `--judge-model` | `deepseek-v4-flash-0731` pour `albert`, `jev-latest` pour `jev` | |
-| `threshold` | `--judge-threshold` | `0.5` | La probabilité à partir de laquelle un défaut est trouvé. |
-| | `--line-tolerance` | `5` | L'écart maximal, en lignes, entre une remarque et un défaut pour interroger le juge. |
+```toml
+[judge]
+name = "jev"
+```
+
+| Réglage | Défaut | Rôle |
+| --- | --- | --- |
+| `name` | `albert` | `albert` interroge un modèle d'Albert ; `jev` interroge [Jev](https://typesafe.ai), le modèle de jugement de TypeSafe. |
+| `model` | `deepseek-v4-flash-0731` pour `albert`, `jev-latest` pour `jev` | Le modèle qui juge, chez Albert ou chez TypeSafe. |
+| `threshold` | `0.5` | La probabilité à partir de laquelle un défaut est trouvé. |
+
+La clé du juge va dans `RELECTEUR_JUDGE_API_KEY` : une clé Albert pour `albert`, une clé TypeSafe
+pour `jev`. Le juge `albert` interroge toujours Albert, quel que soit le modèle qui relit, pour que
+tous les reviewers soient notés par le même juge. Si le reviewer tourne lui aussi sur Albert, le
+juge reprend sa clé.
+
+Pour essayer un autre juge sans modifier le fichier, passez `--judge`, `--judge-model` ou
+`--judge-threshold` à `relecteur eval` ou `relecteur score`. `--line-tolerance` (5 par défaut)
+règle l'écart maximal, en lignes, entre une remarque et un défaut pour interroger le juge.
 
 Le juge `albert` demande au modèle de répondre par oui ou par non, et lit la probabilité du oui
-dans les logprobs. Il interroge toujours Albert, quel que soit le modèle qui relit, pour que tous
-les reviewers soient notés par le même juge.
+dans les logprobs.
 
 Si le juge ne peut pas répondre, parce que le modèle est indisponible ou que sa réponse est
 illisible, le cas est en erreur. Ce n'est jamais compté comme un défaut manqué.
