@@ -37,9 +37,8 @@ de code. relecteur les transmet au moteur comme consignes pour tous les fichiers
 
 Le moteur a ses propres consignes : une par langage ou type de fichier (Java, Go, TypeScript,
 YAML…), et une par défaut pour les autres, qui pousse à commenter le nommage et la couverture de
-tests. Vos consignes les remplacent. Seule exception : pour les fichiers Python, le reviewer reçoit
-vos consignes et, en plus, celles du moteur pour Python. Sans `REVIEW.md` ni `AGENTS.md`, le moteur
-garde toutes les siennes.
+tests. Vos consignes les remplacent toutes. Sans `REVIEW.md` ni `AGENTS.md`, le moteur garde les
+siennes.
 
 `relecteur eval` lit ces fichiers dans votre copie de travail : vous pouvez donc tester une
 modification de `REVIEW.md` avant de la merger. En CI, ils sont lus sur la branche de base.
