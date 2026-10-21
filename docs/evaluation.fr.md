@@ -163,7 +163,7 @@ pas de verdict. Si le reviewer a répondu sans terminer, par exemple faute de to
 Pour savoir si une remarque trouve un défaut attendu, relecteur procède en deux temps. La remarque
 doit d'abord porter sur le fichier du défaut, à quelques lignes près, sans quoi elle n'est pas
 soumise au juge. Le juge donne ensuite la probabilité que la remarque décrive le défaut : au-delà
-d'un seuil, le défaut est trouvé. Une remarque ne trouve qu'un défaut, celui qu'elle décrit le plus
+d'un seuil de probabilité, on considère que le défaut est trouvé. Une remarque ne trouve qu'un défaut, celui qu'elle décrit le plus
 probablement.
 
 Par défaut, le juge est `albert`, avec `deepseek-v4-flash-0731`. Pour en changer, ajoutez une
