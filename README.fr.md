@@ -17,8 +17,8 @@ ses cas et ses consignes.
 ### Faire relire les pull requests d'un dépôt
 
 Pas besoin d'écrire de cas d'évaluation pour faire relire les PR. Avec
-[Albert](https://guides.ia.numerique.gouv.fr/albert-api), qui sert le modèle par défaut (DeepSeek),
-les étapes ci-dessous suffisent. Pour un autre modèle accessible par une API compatible OpenAI ou
+[Albert](https://guides.ia.numerique.gouv.fr/albert-api), qui sert le modèle par défaut
+(`deepseek-v4-flash-0731`), les étapes ci-dessous suffisent. Pour un autre modèle accessible par une API compatible OpenAI ou
 par l'API d'Anthropic, indiquez-le en plus dans un fichier `.relecteur/config.toml` (voir
 [Modèle](docs/configuration.fr.md#modèle)). Seuls les dépôts publics sont pris en charge pour
 l'instant.
@@ -74,12 +74,23 @@ commentaire. Plus de détails dans [Review en CI](docs/ci.fr.md).
 
 ### Évaluer relecteur sur d'anciennes pull requests
 
-1. Installez `relecteur` et le moteur, puis renseignez `RELECTEUR_API_KEY` (voir
-   [Prérequis](docs/evaluation.fr.md#prérequis) et [Installation](docs/evaluation.fr.md#installation)).
-2. Écrivez quelques cas dans `.relecteur/cases` (voir [Cas](docs/evaluation.fr.md#cas)), ou
-   faites-en rédiger par un agent (voir
+1. Installez le moteur et `relecteur`, puis renseignez la clé d'API du modèle. Il vous faut
+   Python 3.11, git 2.41 et [pipx](https://pipx.pypa.io) (voir
+   [Prérequis](docs/evaluation.fr.md#prérequis)). Avec le modèle et le juge par défaut, cette
+   seule clé suffit :
+
+   ```sh
+   npm install --global @alibaba-group/open-code-review@1.12.13
+   git clone https://github.com/gip-inclusion/relecteur.git
+   pipx install --editable ./relecteur
+   export RELECTEUR_API_KEY=<votre clé>
+   ```
+
+2. Créez un dossier `.relecteur/cases` à la racine du dépôt et écrivez-y quelques cas (voir
+   [Cas](docs/evaluation.fr.md#cas)), ou faites-en rédiger par un agent (voir
    [Rédiger des cas avec un agent](docs/evaluation.fr.md#rédiger-des-cas-avec-un-agent)).
-3. Lancez `relecteur validate` pour vérifier les cas, puis `relecteur eval` pour les faire relire.
+3. Depuis le dépôt, lancez `relecteur validate` pour vérifier les cas, puis `relecteur eval` pour
+   les faire relire.
 
 ## Ce qu'apporte relecteur
 

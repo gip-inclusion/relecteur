@@ -5,7 +5,7 @@ Le reviewer se configure dans le dépôt relu : le modèle et les réglages dans
 
 ## Modèle
 
-Par défaut, relecteur utilise DeepSeek, servi par Albert. Pour changer de modèle, créez un fichier
+Par défaut, relecteur utilise `deepseek-v4-flash-0731`, servi par Albert. Pour changer de modèle, créez un fichier
 `.relecteur/config.toml` à la racine du dépôt, avec une table `[model]` :
 
 ```toml
@@ -15,15 +15,14 @@ name = "claude-opus-5-5"
 ```
 
 Mettez la clé d'API de ce modèle dans `RELECTEUR_API_KEY` : le secret du dépôt pour la CI, une
-variable d'environnement pour `relecteur eval`. En CI, le fichier est lu sur la branche de base :
-il ne prend effet qu'une fois mergé.
+variable d'environnement pour `relecteur eval`.
 
 Le modèle doit être accessible par une API compatible OpenAI, comme celle d'Albert, ou par l'API
 d'Anthropic.
 
 | Réglage | Défaut | Rôle |
 | --- | --- | --- |
-| `url` | `https://albert.api.etalab.gouv.fr/v1` | L'adresse de l'API. Pour Anthropic : `https://api.anthropic.com`, sans `/v1`. |
+| `url` | `https://albert.api.etalab.gouv.fr/v1` | L'adresse de l'API. Pour Anthropic : `https://api.anthropic.com`. |
 | `name` | `deepseek-v4-flash-0731` | Le nom du modèle, tel que l'API l'attend. |
 | `protocol` | déduit de l'adresse | `anthropic` ou `openai`. Par défaut, `anthropic` pour `api.anthropic.com` et `openai` sinon. À préciser seulement quand l'adresse ne suffit pas, par exemple derrière une passerelle. |
 
@@ -31,16 +30,16 @@ Pour essayer un autre modèle en local sans toucher au fichier, passez `--model-
 `relecteur eval`. Ils remplacent `url` et `name` le temps d'une exécution. Si `--model-url` change
 l'adresse, `protocol` est ignoré.
 
-relecteur lance le moteur avec un dossier personnel vide, pour ignorer votre configuration
-personnelle d'open-code-review. git, lui, garde votre configuration globale.
-
 ## Instructions du reviewer
 
 Le reviewer suit `REVIEW.md`, qui dit comment relire, puis `AGENTS.md`, qui donne les conventions
-de code. relecteur les transmet au moteur comme consignes pour tous les fichiers. Elles remplacent
-celles du moteur, sauf pour les fichiers Python, où elles s'y ajoutent. Sans `REVIEW.md` ni
-`AGENTS.md`, le moteur garde ses propres consignes, dont une qui pousse à commenter le nommage et
-la couverture de tests.
+de code. relecteur les transmet au moteur comme consignes pour tous les fichiers.
+
+Le moteur a ses propres consignes : une par langage ou type de fichier (Java, Go, TypeScript,
+YAML…), et une par défaut pour les autres, qui pousse à commenter le nommage et la couverture de
+tests. Vos consignes les remplacent. Seule exception : pour les fichiers Python, le reviewer reçoit
+vos consignes et, en plus, celles du moteur pour Python. Sans `REVIEW.md` ni `AGENTS.md`, le moteur
+garde toutes les siennes.
 
 `relecteur eval` lit ces fichiers dans votre copie de travail : vous pouvez donc tester une
 modification de `REVIEW.md` avant de la merger. En CI, ils sont lus sur la branche de base.
@@ -81,8 +80,9 @@ La table `[model]` est décrite [plus haut](#modèle), la table `[judge]` dans
 | `include` | | aucun | Les motifs des fichiers à relire que le moteur écarte par défaut, comme les tests et les templates. |
 | `exclude` | | aucun | Les motifs des fichiers à ne jamais relire, comme les fichiers générés, même s'ils correspondent à `include`. |
 
-En local, les options de la colonne « Option » remplacent le réglage le temps d'un
-`relecteur eval`.
+Pour essayer une autre valeur sans modifier le fichier, passez l'option de la colonne « Option » à
+`relecteur eval` : `relecteur eval --effort medium` relit en effort moyen, quel que soit le
+réglage.
 
 Albert refuse les requêtes au-delà d'un certain débit (HTTP 429) : c'est pourquoi `concurrency`
 vaut 2 par défaut. Avec un modèle sans cette limite, vous pouvez l'augmenter. À l'inverse, sur

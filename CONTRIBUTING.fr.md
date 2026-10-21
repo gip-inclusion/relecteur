@@ -31,4 +31,5 @@ vraies évaluations.
 
 La version du moteur est fixée à deux endroits : dans `action.yml`, qui l'installe, et dans la
 commande d'installation que `relecteur eval` affiche quand le moteur manque. Modifiez les deux en
-même temps, ainsi que la commande des [prérequis](docs/evaluation.fr.md#prérequis).
+même temps, ainsi que les commandes d'installation du [README](README.fr.md) et des
+[prérequis](docs/evaluation.fr.md#prérequis).

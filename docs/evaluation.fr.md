@@ -25,16 +25,18 @@ Vous pouvez aussi mettre ces clés dans un fichier `.env` non versionné, à la 
 ## Installation
 
 Installez `relecteur` avec [pipx](https://pipx.pypa.io) (`brew install pipx` sur macOS). Tant que
-le paquet n'est pas publié, installez-le depuis une copie locale du dépôt :
+le paquet n'est pas publié, installez-le depuis une copie du dépôt :
 
 ```sh
-pipx install --editable ../relecteur
+git clone https://github.com/gip-inclusion/relecteur.git
+pipx install --editable ./relecteur
 ```
 
 ## Cas
 
-Un cas est un fichier TOML de `.relecteur/cases` qui décrit une ancienne PR par ses commits de
-base et de tête. Le nom du fichier sert de nom au cas.
+Créez un dossier `.relecteur/cases` à la racine du dépôt, et mettez-y un fichier TOML par cas.
+Chaque cas décrit une ancienne PR par ses commits de base et de tête. Le nom du fichier sert de nom
+au cas.
 
 Il y a deux sortes de cas :
 
@@ -63,7 +65,7 @@ La remise s'appliquait au total TTC, contrairement aux conditions de vente.
 | `notes` | Ce que le reviewer doit faire, et pourquoi. Le reviewer ne le voit jamais. |
 | `base`, `head` | Les SHA complets du code relu par un humain : les commits de base et de tête de la PR. Pour un défaut repéré pendant la review, `head` est le commit commenté. |
 | `max_findings` | Le nombre maximal de remarques : au-delà, le cas échoue. |
-| `expected_defects` | Facultatif. Les défauts que le reviewer doit signaler, qui font du cas un cas de défaut (voir plus bas). |
+| `expected_defects` | Facultatif. Les défauts que le reviewer doit signaler, qui font du cas un cas de défaut (voir ci-dessous). |
 | `pr` | Facultatif, en fin de fichier. Le `title` et la `description` de la PR, tels que son auteur les a écrits. Le reviewer y lit l'intention du changement, comme en CI. |
 
 Un cas de défaut décrit chaque défaut en quelques mots, avec le lien vers sa correction :
@@ -93,8 +95,7 @@ escaped_review = true
 
 Prévoyez dans `max_findings` au moins une remarque par défaut attendu.
 
-Vous pouvez écrire un cas à la main ou le faire rédiger par un agent (voir plus bas). Dans les deux
-cas, ajoutez-le par une PR : c'est en la relisant qu'une personne le valide.
+Vous pouvez écrire un cas à la main ou le faire rédiger par un agent (voir ci-dessous).
 
 Si un commit du cas manque en local, par exemple la tête d'une PR mergée en squash, relecteur le
 récupère sur le remote `origin`.
@@ -109,7 +110,8 @@ agent de rédiger des cas à partir de l'historique d'un dépôt GitHub :
   a suivis, qu'ils signalent un défaut ou une convention écrite non respectée.
 
 L'agent vérifie ses cas avec `relecteur validate` et les laisse non commités, chacun avec ses
-preuves. Vous les relisez, gardez ceux qui tiennent et les ajoutez par une PR.
+preuves. Relisez-les, gardez ceux qui vous paraissent pertinents et commitez-les si vous voulez
+les rejouer plus tard.
 
 Un skill est un fichier Markdown que n'importe quel agent peut suivre. Avec Claude Code, copiez le
 dossier `build-eval-cases` dans le dossier `.claude/skills` du dépôt, puis lancez

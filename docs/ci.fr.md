@@ -14,8 +14,8 @@ une PR et ne demande jamais de modifications.
 Le workflow du [démarrage rapide](../README.fr.md#faire-relire-les-pull-requests-dun-dépôt) relit
 une PR une seule fois, à son ouverture ou quand elle sort de brouillon, pour que le coût ne dépende
 pas du nombre de pushes. Vous pouvez changer ces déclencheurs dans le workflow. Il ne relit jamais
-les PR des bots. Les PR venant d'un fork n'ont pas accès aux secrets du dépôt : pour les faire
-relire, un membre de l'équipe écrit `@relecteur` en commentaire.
+les PR des bots. Les PR venant d'un fork ne sont relues que si un membre de l'équipe écrit
+`@relecteur` en commentaire.
 
 Pour relancer une review, écrivez `@relecteur` dans un commentaire de la PR. Il faut avoir le
 droit de pousser sur le dépôt, et `@relecteur` doit figurer dans votre propre texte, pas dans une
