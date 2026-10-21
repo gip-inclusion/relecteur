@@ -68,7 +68,7 @@ threshold = 0.5
 ```
 
 La table `[model]` est décrite [plus haut](#modèle), la table `[judge]` dans
-[Évaluation](evaluation.fr.md#juge). Les autres réglages se placent en tête du fichier :
+[Évaluation](evaluation.md#juge). Les autres réglages se placent en tête du fichier :
 
 | Réglage | Option | Défaut | |
 | --- | --- | --- | --- |

@@ -11,7 +11,7 @@ une PR et ne demande jamais de modifications.
 
 ## Quand l'action relit
 
-Le workflow du [démarrage rapide](../README.fr.md#faire-relire-les-pull-requests-dun-dépôt) relit
+Le workflow du [démarrage rapide](../README.md#faire-relire-les-pull-requests-dun-dépôt) relit
 une PR une seule fois, à son ouverture ou quand elle sort de brouillon, pour que le coût ne dépende
 pas du nombre de pushes. Vous pouvez changer ces déclencheurs dans le workflow. Il ne relit jamais
 les PR des bots. Les PR venant d'un fork ne sont relues que si un membre de l'équipe écrit
@@ -26,7 +26,7 @@ déjà une. Les remarques apparaissent au nom du bot GitHub Actions.
 
 Le résumé est un commentaire de la PR. Il indique d'abord que la review est en cours, puis comment
 elle s'est terminée. Comme `relecteur eval`, l'action reprend une review que la limite de débit
-du modèle ou les délais ont écourtée (voir [Réglages](configuration.fr.md#réglages)).
+du modèle ou les délais ont écourtée (voir [Réglages](configuration.md#réglages)).
 
 Si la review reste malgré tout incomplète à cause du modèle (surcharge, limite de débit, délai
 dépassé, erreur 5xx), le résumé liste les fichiers non relus et explique comment relancer. Le job
