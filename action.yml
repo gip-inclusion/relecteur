@@ -93,6 +93,22 @@ runs:
         fetch-depth: 0
         persist-credentials: false
 
+    # The head of the pull request, which a private repository gives with the token only. The token
+    # reaches this one git command through its environment, and is never written to the repository's
+    # git configuration, where the engine of the next step would find it.
+    - name: Fetch the pull request
+      if: steps.pr.outputs.review == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        PR_NUMBER: ${{ steps.pr.outputs.number }}
+      run: |
+        credentials="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+        echo "::add-mask::$credentials"
+        GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="http.$GITHUB_SERVER_URL/.extraheader" \
+          GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $credentials" \
+          git fetch --quiet --no-tags origin "pull/$PR_NUMBER/head"
+
     # The engine runs in a step without the token that posts the review.
     - name: Review
       if: steps.pr.outputs.review == 'true'
@@ -103,7 +119,6 @@ runs:
         HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
         BACKGROUND: ${{ steps.pr.outputs.background }}
       run: |
-        git fetch --quiet --no-tags origin "pull/$PR_NUMBER/head"
         relecteur review-pr --base "$(git merge-base HEAD "$HEAD_SHA")" --head "$HEAD_SHA" \
           --background "$BACKGROUND" --output "$RUNNER_TEMP/relecteur"
 
