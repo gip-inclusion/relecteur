@@ -131,8 +131,8 @@ Greptile, voir [Comparaisons](docs/comparaisons.md).
 
 ## Documentation
 
-- [Review en CI](docs/ci.md) : quand l'action relit, `@relecteur`, le résumé et le statut du
-  job.
+- [Review en CI](docs/ci.md) : quand l'action relit, `@relecteur`, ce qu'on voit sur la PR et ce
+  qui se passe quand la review n'aboutit pas.
 - [Évaluation](docs/evaluation.md) : installation, cas, commandes et juge.
 - [Configuration](docs/configuration.md) : modèle, consignes du reviewer, réglages et relais
   vers Albert.

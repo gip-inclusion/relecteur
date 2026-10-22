@@ -23,17 +23,30 @@ droit de pousser sur le dépôt, et `@relecteur` doit figurer dans votre propre 
 citation. La nouvelle review relit toute la PR, sans reposter de remarque sur une ligne qui en a
 déjà une. Les remarques apparaissent au nom du bot GitHub Actions.
 
-## Résumé et statut du job
+## Ce qu'on voit sur la PR
 
-Chaque review publie son propre résumé, en commentaire de la PR, à la suite des précédents. Il
-indique d'abord que la review est en cours, avec un lien pour la suivre et, après un push, le commit
-relu, puis comment elle s'est terminée. Comme `relecteur eval`, l'action reprend une review que la
-limite de débit du modèle ou les délais ont écourtée (voir [Réglages](configuration.md#réglages)).
+Pendant la review :
 
-La review apparaît aussi parmi les checks du dernier commit de la PR, sous le nom « relecteur »,
-avec un lien vers son run, même quand un commentaire l'a lancée. Ce statut demande la permission
-`statuses: write` dans le workflow : sans elle, la review se fait sans statut. Quand un commentaire
-`@relecteur` lance une review, relecteur y réagit par 👀.
+- un commentaire « ⏳ relecteur relit cette PR », avec un lien « suivre la review » ;
+- un check « relecteur » en cours, dans l'encadré des checks de la PR, même quand un commentaire a
+  lancé la review ;
+- une réaction 👀 sur le commentaire `@relecteur`, si c'est lui qui a lancé la review.
+
+À la fin :
+
+- le commentaire « ⏳ » devient le résumé de la review : ce qu'elle a trouvé, ou pourquoi elle n'est
+  pas allée au bout ;
+- le check « relecteur » donne le résultat en quelques mots, comme « Rien à signaler » ou
+  « 2 remarques » ;
+- les remarques sont en commentaire sur les lignes concernées.
+
+Chaque review a son propre résumé. Une review relancée par `@relecteur` en ajoute un nouveau en bas
+de la PR, et les précédents restent.
+
+## Quand la review n'aboutit pas
+
+Si la limite de débit du modèle ou les délais écourtent une review, relecteur la reprend sur les
+fichiers restants, comme `relecteur eval` (voir [Réglages](configuration.md#réglages)).
 
 Si la review reste malgré tout incomplète à cause du modèle (surcharge, limite de débit, délai
 dépassé, erreur 5xx), le résumé liste les fichiers non relus et explique comment relancer. Le job
@@ -43,8 +56,8 @@ personne qui maintient l'installation est ainsi prévenue. Dans les deux cas, la
 bloquée, sauf si le job est un check requis.
 
 Une review annulée, par un push ou à la main, ou arrêtée par `timeout-minutes`, ne publie rien : son
-statut indique « Review annulée », le résumé reste « en cours », et le prochain push relance la
-review.
+check « relecteur » indique « Review annulée », le résumé reste « en cours », et le prochain push
+relance la review.
 
 ## La clé d'API
 
