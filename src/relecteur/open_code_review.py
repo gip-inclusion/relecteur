@@ -8,10 +8,12 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import TextIO
 
 from relecteur.model import Model
 from relecteur.review import Finding, PullRequestReview, Review, Status
@@ -93,13 +95,17 @@ def pull_request_output(
     settings: Settings,
     background: str | None = None,
     instructions: str | None = None,
+    progress: TextIO | None = None,
 ) -> tuple[str, str]:
     """Reviews a pull request in CI as `review` does, and gives what `pull_request_review` reads:
     the engine's output after its last resume, which holds the findings of every run, and its
-    error output."""
+    error output. With `progress`, the error output is written there as it comes, where the engine
+    tells which files it reviews, for the log of a review in CI to show where it stands."""
     try:
-        runs = _runs(repo, base, head, model, settings, background, instructions)
+        runs = _runs(repo, base, head, model, settings, background, instructions, progress)
     except _EngineError as error:
+        if progress:
+            print(error, file=progress)
         return "", str(error)
     return runs[-1].stdout, "".join(run.stderr for run in runs)
 
@@ -149,11 +155,14 @@ class _EngineError(Exception):
     pass
 
 
-def _runs(repo, base, head, model, settings, background, instructions):
-    """The engine's run, then its resumes while the model's rate limit or timeouts cut it short."""
+def _runs(repo, base, head, model, settings, background, instructions, progress=None):
+    """The engine's run, then its resumes while the model's rate limit or timeouts cut it short.
+
+    With `progress`, the engine writes its progress to its error output, for the human audience.
+    """
     command = ["ocr", "review", "--repo", str(repo), "--from", base, "--to", head]
     command += ["--effort", settings.effort, "--concurrency", str(settings.concurrency)]
-    command += ["--format", "json", "--audience", "agent"]
+    command += ["--format", "json", "--audience", "human" if progress else "agent"]
     if settings.max_tokens_budget:
         command += ["--max-tokens-budget", str(settings.max_tokens_budget)]
     if background:
@@ -168,7 +177,7 @@ def _runs(repo, base, head, model, settings, background, instructions):
                 error := _configure(model, home, "language", settings.language)
             ):
                 raise _EngineError(error)
-            runs = [_run(command, model, home)]
+            runs = [_run(command, model, home, progress)]
             for attempt in range(1, _RESUMES + 1):
                 if not (session := session_to_resume(runs[-1].stdout)):
                     break
@@ -179,7 +188,7 @@ def _runs(repo, base, head, model, settings, background, instructions):
                     flush=True,
                 )
                 time.sleep(pause)
-                runs.append(_run([*command, "--resume", session], model, home))
+                runs.append(_run([*command, "--resume", session], model, home, progress))
         except FileNotFoundError:
             raise _EngineError(
                 f"open-code-review is not installed (ocr): {_INSTALL_COMMAND}"
@@ -195,9 +204,30 @@ def _configure(model, home, key, value):
     return None
 
 
-def _run(command, model, home):
+def _run(command, model, home, progress=None):
+    if progress:
+        return _streamed_run(command, _environment(model, home), progress)
     return subprocess.run(
         command, capture_output=True, text=True, check=False, env=_environment(model, home)
+    )
+
+
+def _streamed_run(command, environment, progress):
+    """The engine's run, whose error output is also copied to `progress` line by line."""
+    with subprocess.Popen(
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=environment
+    ) as process:
+        stdout = []
+        reader = threading.Thread(target=lambda: stdout.append(process.stdout.read()))
+        reader.start()
+        stderr = []
+        for line in process.stderr:
+            progress.write(line)
+            progress.flush()
+            stderr.append(line)
+        reader.join()
+    return subprocess.CompletedProcess(
+        command, process.returncode, "".join(stdout), "".join(stderr)
     )
 
 

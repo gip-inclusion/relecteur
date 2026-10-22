@@ -25,8 +25,10 @@ déjà une. Les remarques apparaissent au nom du bot GitHub Actions.
 ## Résumé et statut du job
 
 Le résumé est un commentaire de la PR. Il indique d'abord que la review est en cours, puis comment
-elle s'est terminée. Comme `relecteur eval`, l'action reprend une review que la limite de débit
-du modèle ou les délais ont écourtée (voir [Réglages](configuration.md#réglages)).
+elle s'est terminée. Comme `relecteur eval`, l'action reprend une review que la limite de débit du
+modèle ou les délais ont écourtée (voir [Réglages](configuration.md#réglages)). Pendant la review,
+le log de l'étape « Review » affiche la progression du moteur, et chaque requête refusée par la
+limite de débit que le relais renvoie.
 
 Si la review reste malgré tout incomplète à cause du modèle (surcharge, limite de débit, délai
 dépassé, erreur 5xx), le résumé liste les fichiers non relus et explique comment relancer. Le job

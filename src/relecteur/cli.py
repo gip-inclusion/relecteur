@@ -240,6 +240,7 @@ def _review_pr(arguments):
         model = Model.reviewer(reviewer.url, reviewer.name, reviewer.protocol, os.environ)
     except (InvalidConfig, MissingApiKey, repository.RepositoryError) as error:
         stdout, stderr = "", f"{error}\n"
+        print(stderr, file=sys.stderr, end="")
     else:
         with _reached(model) as engine_model:
             stdout, stderr = open_code_review.pull_request_output(
@@ -250,11 +251,11 @@ def _review_pr(arguments):
                 settings.engine,
                 arguments.background,
                 repository.reviewer_instructions(repo),
+                progress=sys.stderr,
             )
     arguments.output.mkdir(parents=True, exist_ok=True)
     (arguments.output / "review.json").write_text(stdout, encoding="utf-8")
     (arguments.output / "review.log").write_text(stderr, encoding="utf-8")
-    print(stderr, file=sys.stderr, end="")
     return 0
 
 

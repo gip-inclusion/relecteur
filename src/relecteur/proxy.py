@@ -3,7 +3,7 @@ sending again the requests the endpoint's rate limit refused.
 
 Albert's gateway up to 0.8.0 turns a missing `tool_choice` into "none", against the OpenAI
 convention the engine relies on, so DeepSeek never calls the engine's tools. Albert 0.9.0 fixes
-it, announced for deployment on 2026-10-19.
+it, once in service.
 
 Albert also limits the tokens a model receives per minute, which a review at high effort exceeds.
 The engine's own retries of a refused request last seconds, then it gives up the request's files:
@@ -11,6 +11,7 @@ the relay waits for the limit to recover instead, and the engine never sees the 
 """
 
 import json
+import sys
 import threading
 import time
 import urllib.error
@@ -68,13 +69,19 @@ class _Handler(BaseHTTPRequestHandler):
             },
             method="POST",
         )
-        for pause in (*_RATE_LIMIT_PAUSES, None):
+        for attempt, pause in enumerate((*_RATE_LIMIT_PAUSES, None), start=1):
             try:
                 with urllib.request.urlopen(request, timeout=600) as response:
                     return self._answer(response.status, response.headers, response.read())
             except urllib.error.HTTPError as error:
                 if error.code != 429 or pause is None:
                     return self._answer(error.code, error.headers, error.read())
+                print(
+                    f"  rate limited (HTTP 429), sending the request again in {pause} s"
+                    f" ({attempt} of {len(_RATE_LIMIT_PAUSES)})",
+                    file=sys.stderr,
+                    flush=True,
+                )
                 time.sleep(pause)
             except urllib.error.URLError as error:
                 message = {"error": {"message": f"model endpoint unreachable: {error.reason}"}}
