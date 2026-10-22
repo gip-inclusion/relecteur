@@ -16,8 +16,7 @@ ses cas et ses consignes.
 
 ### Faire relire les pull requests d'un dépôt
 
-Pas besoin de cas d'évaluation pour commencer. Seuls les dépôts publics sont pris en charge pour
-l'instant.
+Pas besoin de cas d'évaluation pour commencer.
 
 1. Créez dans le dépôt un secret `RELECTEUR_API_KEY` avec la clé d'API du modèle. Par défaut,
    relecteur utilise `deepseek-v4-flash-0731`, servi par
