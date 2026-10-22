@@ -39,6 +39,7 @@ Pas besoin de cas d'évaluation pour commencer.
    permissions:
      contents: read
      pull-requests: write
+     statuses: write
 
    jobs:
      relecteur:

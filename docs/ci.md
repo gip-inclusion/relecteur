@@ -25,10 +25,15 @@ déjà une. Les remarques apparaissent au nom du bot GitHub Actions.
 
 ## Résumé et statut du job
 
-Le résumé est un commentaire de la PR. Il indique d'abord que la review est en cours, avec un lien
-pour la suivre et, après un push, le commit relu, puis comment elle s'est terminée. Comme `relecteur
-eval`, l'action reprend une review que la limite de débit du modèle ou les délais ont écourtée (voir
-[Réglages](configuration.md#réglages)).
+Chaque review publie son propre résumé, en commentaire de la PR, à la suite des précédents. Il
+indique d'abord que la review est en cours, avec un lien pour la suivre et, après un push, le commit
+relu, puis comment elle s'est terminée. Comme `relecteur eval`, l'action reprend une review que la
+limite de débit du modèle ou les délais ont écourtée (voir [Réglages](configuration.md#réglages)).
+
+La review apparaît aussi parmi les checks du dernier commit de la PR, sous le nom « relecteur »,
+avec un lien vers son run, même quand un commentaire l'a lancée. Ce statut demande la permission
+`statuses: write` dans le workflow : sans elle, la review se fait sans statut. Quand un commentaire
+`@relecteur` lance une review, relecteur y réagit par 👀.
 
 Si la review reste malgré tout incomplète à cause du modèle (surcharge, limite de débit, délai
 dépassé, erreur 5xx), le résumé liste les fichiers non relus et explique comment relancer. Le job
@@ -37,8 +42,9 @@ cause (clé refusée, tours épuisés, moteur sans sortie), le résumé le dit e
 personne qui maintient l'installation est ainsi prévenue. Dans les deux cas, la PR n'est pas
 bloquée, sauf si le job est un check requis.
 
-Une review annulée, par un push ou à la main, ou arrêtée par `timeout-minutes`, ne publie rien : le
-résumé reste « en cours », et le prochain push relance la review.
+Une review annulée, par un push ou à la main, ou arrêtée par `timeout-minutes`, ne publie rien : son
+statut indique « Review annulée », le résumé reste « en cours », et le prochain push relance la
+review.
 
 ## La clé d'API
 

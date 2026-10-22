@@ -49,6 +49,22 @@ def text(review: PullRequestReview) -> str:
     return f"🔍 **relecteur** a relu cette PR : {_findings(len(review.findings))}"
 
 
+def commit_status(review: PullRequestReview) -> tuple[str, str]:
+    """The state and the short description of the status that shows the review among the checks of
+    the pull request: it fails as the job does, only when the reviewer kept it from reviewing."""
+    if review.status is Status.NOTHING_TO_REVIEW:
+        return "success", "Aucun fichier à relire"
+    if review.status is Status.UNAVAILABLE:
+        return "success", "Review incomplète : modèle indisponible"
+    if review.status is Status.OVER_BUDGET:
+        return "success", "Review incomplète : plafond de tokens atteint"
+    if review.status is Status.FAILED:
+        return "failure", "Le reviewer n'a pas pu relire la PR"
+    if not review.findings:
+        return "success", "Rien à signaler"
+    return "success", f"{len(review.findings)} {_plural(len(review.findings), 'remarque')}"
+
+
 def _findings(count):
     if count == 1:
         return "1 remarque, en commentaire sur la ligne concernée."

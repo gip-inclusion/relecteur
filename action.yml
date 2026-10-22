@@ -62,8 +62,10 @@ runs:
           // The intent of the change, as `relecteur eval` gives it from a case: title, then description.
           core.setOutput('background', [pr.title, pr.body].map((text) => (text || '').trim()).filter(Boolean).join('\n\n'));
 
-    # `relecteur post-review` updates in place the comment that carries this marker. The second
-    # marker tells a push that the review is not done yet.
+    # Each review posts its own summary, below the earlier ones, which `relecteur post-review` turns
+    # into the review's; it takes over the summary of a review a push cut short, still under way.
+    # The second marker tells a push that the review is not done yet. The status shows the review
+    # among the checks of the pull request, whatever started it, and needs `statuses: write`.
     - name: Tell that the review is under way
       if: steps.pr.outputs.review == 'true'
       uses: actions/github-script@v9
@@ -74,16 +76,25 @@ runs:
         github-token: ${{ inputs.github_token }}
         script: |
           const marker = '<!-- relecteur -->';
+          const underWay = '<!-- relecteur under way -->';
           const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
           const verb = context.payload.action === 'synchronize' ? `reprend la review avec le dernier commit (${process.env.HEAD_SHA.slice(0, 7)})` : 'relit cette PR';
-          const body = `${marker}<!-- relecteur under way -->\n⏳ **relecteur** ${verb} : ses remarques arriveront en commentaire sur les lignes concernées ([suivre la review](${run})).`;
+          const body = `${marker}${underWay}\n⏳ **relecteur** ${verb} : ses remarques arriveront en commentaire sur les lignes concernées ([suivre la review](${run})).`;
           const issue_number = Number(process.env.PR_NUMBER);
           const comments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number, per_page: 100 });
           const summary = comments.reverse().find((comment) => (comment.body || '').includes(marker));
-          if (summary) {
+          if (summary?.body.includes(underWay)) {
             await github.rest.issues.updateComment({ ...context.repo, comment_id: summary.id, body });
           } else {
             await github.rest.issues.createComment({ ...context.repo, issue_number, body });
+          }
+          await github.rest.repos
+            .createCommitStatus({ ...context.repo, sha: process.env.HEAD_SHA, state: 'pending', context: 'relecteur', description: 'Review en cours', target_url: run })
+            .catch((error) => core.notice(`No status on the commit (HTTP ${error.status}): the workflow needs statuses: write.`));
+          if (context.payload.comment) {
+            await github.rest.reactions
+              .createForIssueComment({ ...context.repo, comment_id: context.payload.comment.id, content: 'eyes' })
+              .catch((error) => core.notice(`No reaction on the comment (HTTP ${error.status}).`));
           }
 
     # Installs relecteur before the checkout of the base branch below. In a repository that reviews
@@ -148,3 +159,18 @@ runs:
         PR_NUMBER: ${{ steps.pr.outputs.number }}
         HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
       run: relecteur post-review "$RUNNER_TEMP/relecteur" --pr "$PR_NUMBER" --head "$HEAD_SHA"
+
+    # A review cancelled, by a push or by hand, or stopped by `timeout-minutes`, says so in its
+    # status, which would otherwise stay under way.
+    - name: Tell that the review was cancelled
+      if: ${{ cancelled() && steps.pr.outputs.review == 'true' }}
+      uses: actions/github-script@v9
+      env:
+        HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+          await github.rest.repos
+            .createCommitStatus({ ...context.repo, sha: process.env.HEAD_SHA, state: 'error', context: 'relecteur', description: 'Review annulée', target_url: run })
+            .catch((error) => core.notice(`No status on the commit (HTTP ${error.status}).`));

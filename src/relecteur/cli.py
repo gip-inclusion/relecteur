@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import sys
+import urllib.error
 from collections import Counter
 from contextlib import contextmanager, suppress
 from dataclasses import replace
@@ -270,8 +271,25 @@ def _post_review(arguments):
     )
     pull_request.comment(arguments.head, inline)
     pull_request.summarize(github.summary_body(summary.text(review), elsewhere))
+    _set_status(pull_request, arguments.head, review)
     print(summary.text(review))
     return 1 if review.failed else 0
+
+
+def _set_status(pull_request, head, review):
+    """Shows how the review ended among the checks of the pull request, when the workflow grants
+    `statuses: write`: without it, the review goes on without a status."""
+    run = (
+        f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
+        f"/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+    )
+    try:
+        pull_request.set_status(head, *summary.commit_status(review), run)
+    except urllib.error.HTTPError as error:
+        print(
+            f"no status on the commit (HTTP {error.code}): the workflow needs `statuses: write`",
+            file=sys.stderr,
+        )
 
 
 def _content(path):

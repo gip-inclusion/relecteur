@@ -1,5 +1,6 @@
 """Posts a review in CI on its pull request, through GitHub's REST API: the findings on the lines
-of the diff they concern, and a summary that each review of the pull request updates.
+of the diff they concern, the review's summary, and its status among the checks of the pull
+request.
 
 It comments only: it neither approves a pull request nor requests changes.
 """
@@ -11,8 +12,8 @@ from collections.abc import Iterable, Mapping
 
 from relecteur.review import Finding
 
-# Marks the summary that each review of the pull request updates, and the findings it posted,
-# for a review called again to leave out a finding on lines it already commented.
+# Marks the summaries of the reviews of the pull request, and the findings they posted, for a
+# review called again to leave out a finding on lines it already commented.
 SUMMARY_MARKER = "<!-- relecteur -->"
 _FINDING_MARKER = "<!-- relecteur finding -->"
 _HUNK = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
@@ -100,7 +101,8 @@ class PullRequest:
             )
 
     def summarize(self, body: str) -> None:
-        """Updates the summary of the pull request, or posts it on its first review."""
+        """Turns the last summary, which the action posted while the review was under way, into the
+        review's, or posts it when there is none."""
         summaries = [
             comment
             for comment in self._pages(f"/issues/{self.number}/comments")
@@ -110,6 +112,20 @@ class PullRequest:
             self._request("PATCH", f"/issues/comments/{summaries[-1]['id']}", {"body": body})
         else:
             self._request("POST", f"/issues/{self.number}/comments", {"body": body})
+
+    def set_status(self, head: str, state: str, description: str, target_url: str) -> None:
+        """Sets the reviewer's status on `head`, which GitHub shows among the checks of the pull
+        request, with a link to the review's run."""
+        self._request(
+            "POST",
+            f"/statuses/{head}",
+            {
+                "state": state,
+                "description": description,
+                "context": "relecteur",
+                "target_url": target_url,
+            },
+        )
 
     def _pages(self, path):
         items, page = [], 1
