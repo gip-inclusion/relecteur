@@ -167,3 +167,27 @@ def test_an_output_of_unexpected_shape_fails_the_review_rather_than_passing_for_
         "❌ **relecteur** n'a pas pu relire cette PR (`unexpected open-code-review output: "
     )
     assert review.failed
+
+
+@pytest.mark.parametrize(
+    ("review", "status"),
+    [
+        (PullRequestReview(Status.REVIEWED), ("success", "Rien à signaler")),
+        (PullRequestReview(Status.REVIEWED, findings=(FINDING,)), ("success", "1 remarque")),
+        (PullRequestReview(Status.REVIEWED, findings=(FINDING,) * 2), ("success", "2 remarques")),
+        (PullRequestReview(Status.NOTHING_TO_REVIEW), ("success", "Aucun fichier à relire")),
+        (
+            PullRequestReview(Status.UNAVAILABLE, files=3, unreviewed=3),
+            ("success", "Review incomplète : modèle indisponible"),
+        ),
+        (
+            PullRequestReview(Status.OVER_BUDGET, files=3, unreviewed=1),
+            ("success", "Review incomplète : plafond de tokens atteint"),
+        ),
+        (PullRequestReview(Status.FAILED), ("failure", "Le reviewer n'a pas pu relire la PR")),
+    ],
+)
+def test_the_commit_status_tells_in_short_how_the_review_ended_and_fails_with_the_reviewer_only(
+    review, status
+):
+    assert summary.commit_status(review) == status
