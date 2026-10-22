@@ -41,11 +41,12 @@ runs:
             }
           }
           if (context.payload.action === 'synchronize') {
-            // A push reviews the new commit only when it cut short a review under way: once its review
-            // is done, a pull request is reviewed again on a comment only.
+            // A push reviews the new commit unless the pull request's review is done: once it is, the
+            // pull request is reviewed again on a comment only. Without any summary yet, no review has
+            // finished, as when the push cancelled the review of the opening before it began.
             const comments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number: context.payload.pull_request.number, per_page: 100 });
             const summary = comments.reverse().find((comment) => (comment.body || '').includes('<!-- relecteur -->'));
-            if (!summary?.body.includes('<!-- relecteur under way -->')) {
+            if (summary && !summary.body.includes('<!-- relecteur under way -->')) {
               core.notice('The pull request has had its review: a push does not review it again.');
               return core.setOutput('review', 'false');
             }
