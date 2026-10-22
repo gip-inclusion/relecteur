@@ -90,11 +90,11 @@ runs:
           }
           await github.rest.repos
             .createCommitStatus({ ...context.repo, sha: process.env.HEAD_SHA, state: 'pending', context: 'relecteur', description: 'Review en cours', target_url: run })
-            .catch((error) => core.notice(`No status on the commit (HTTP ${error.status}): the workflow needs statuses: write.`));
+            .catch((error) => core.notice(`No status on the commit: ${error.status === 403 ? 'the workflow needs statuses: write' : error.message}.`));
           if (context.payload.comment) {
             await github.rest.reactions
               .createForIssueComment({ ...context.repo, comment_id: context.payload.comment.id, content: 'eyes' })
-              .catch((error) => core.notice(`No reaction on the comment (HTTP ${error.status}).`));
+              .catch((error) => core.notice(`No reaction on the comment: ${error.message}.`));
           }
 
     # Installs relecteur before the checkout of the base branch below. In a repository that reviews
@@ -173,4 +173,4 @@ runs:
           const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
           await github.rest.repos
             .createCommitStatus({ ...context.repo, sha: process.env.HEAD_SHA, state: 'error', context: 'relecteur', description: 'Review annulée', target_url: run })
-            .catch((error) => core.notice(`No status on the commit (HTTP ${error.status}).`));
+            .catch((error) => core.notice(`No status on the commit: ${error.status === 403 ? 'the workflow needs statuses: write' : error.message}.`));

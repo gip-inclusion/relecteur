@@ -285,11 +285,14 @@ def _set_status(pull_request, head, review):
     )
     try:
         pull_request.set_status(head, *summary.commit_status(review), run)
-    except urllib.error.HTTPError as error:
-        print(
-            f"no status on the commit (HTTP {error.code}): the workflow needs `statuses: write`",
-            file=sys.stderr,
-        )
+    except (urllib.error.URLError, TimeoutError) as error:
+        print(f"no status on the commit: {_status_error(error)}", file=sys.stderr)
+
+
+def _status_error(error):
+    if getattr(error, "code", None) == 403:
+        return "the workflow needs `statuses: write`"
+    return str(error)
 
 
 def _content(path):
