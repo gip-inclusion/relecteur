@@ -40,6 +40,12 @@ bloquée, sauf si le job est un check requis.
 Une review annulée, par un push ou à la main, ou arrêtée par `timeout-minutes`, ne publie rien : le
 résumé reste « en cours », et le prochain push relance la review.
 
+## La clé d'API
+
+Toute personne qui peut pousser sur le dépôt peut lire ses secrets, `RELECTEUR_API_KEY` compris :
+c'est le fonctionnement de GitHub Actions. Utilisez une clé dédiée à relecteur, rattachée à un
+compte de service, que vous pouvez révoquer sans rien casser d'autre.
+
 ## Dépôts privés
 
 L'action relit aussi les dépôts privés. Elle récupère le code de la PR avec le token GitHub, dans
