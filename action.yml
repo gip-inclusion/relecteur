@@ -71,6 +71,15 @@ runs:
             await github.rest.issues.createComment({ ...context.repo, issue_number, body });
           }
 
+    # Before the checkout below replaces the workspace: a repository that reviews itself with
+    # `uses: ./`, as relecteur does, reviews with the relecteur of its pull request.
+    - name: Install relecteur and open-code-review
+      if: steps.pr.outputs.review == 'true'
+      shell: bash
+      run: |
+        pipx install "$GITHUB_ACTION_PATH"
+        npm install --global @alibaba-group/open-code-review@1.12.13
+
     # The instructions and settings of the base branch, whatever the event, with the history that
     # gives the merge base. The token stays out of the repository's git configuration, where the
     # engine would find it.
@@ -81,13 +90,6 @@ runs:
         ref: ${{ steps.pr.outputs.base_ref }}
         fetch-depth: 0
         persist-credentials: false
-
-    - name: Install relecteur and open-code-review
-      if: steps.pr.outputs.review == 'true'
-      shell: bash
-      run: |
-        pipx install "$GITHUB_ACTION_PATH"
-        npm install --global @alibaba-group/open-code-review@1.12.13
 
     # The engine runs in a step without the token that posts the review.
     - name: Review
