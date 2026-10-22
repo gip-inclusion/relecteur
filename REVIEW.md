@@ -10,9 +10,12 @@ Une remarque signale l'un de ces problèmes, dans les lignes que la PR ajoute ou
   plante, rend un mauvais résultat ou casse un comportement qui marchait. Par exemple une sortie
   du moteur mal lue, un modèle indisponible pris pour une faute du reviewer (ou l'inverse), ou un
   code de sortie faux.
-- **Un problème de sécurité** : un token ou une clé que le moteur peut lire, une expression
-  `${{ }}` d'un workflow insérée dans un script sans passer par une variable d'environnement, ou un
-  secret écrit dans le code.
+- **Un problème de sécurité** : un accès que quelqu'un sans droit d'écriture sur le dépôt peut
+  obtenir. Par exemple faire exécuter le code d'une PR venant d'un fork dans un run qui a les
+  secrets (`issue_comment`, `pull_request_target`), un token ou une clé que le moteur peut lire,
+  une expression `${{ }}` d'un workflow insérée dans un script sans passer par une variable
+  d'environnement, ou un secret écrit dans le code. Les personnes qui peuvent pousser sur le dépôt
+  sont de confiance : GitHub leur donne déjà accès aux secrets.
 - **Une doc contredite** : la PR change un comportement que `README.md` ou `docs/` décrit, sans
   mettre la page à jour.
 - **Un écart à une convention écrite dans `AGENTS.md`**, en citant la convention.

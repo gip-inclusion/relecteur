@@ -35,6 +35,12 @@ cause (clé refusée, tours épuisés, moteur sans sortie), le résumé le dit e
 personne qui maintient l'installation est ainsi prévenue. Dans les deux cas, la PR n'est pas
 bloquée, sauf si le job est un check requis.
 
+## La clé d'API
+
+Toute personne qui peut pousser sur le dépôt peut lire ses secrets, `RELECTEUR_API_KEY` compris :
+c'est le fonctionnement de GitHub Actions. Utilisez une clé dédiée à relecteur, rattachée à un
+compte de service, que vous pouvez révoquer sans rien casser d'autre.
+
 ## Dépôts privés
 
 L'action relit aussi les dépôts privés. Elle récupère le code de la PR avec le token GitHub, dans
