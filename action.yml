@@ -71,8 +71,10 @@ runs:
             await github.rest.issues.createComment({ ...context.repo, issue_number, body });
           }
 
-    # Before the checkout below replaces the workspace: a repository that reviews itself with
-    # `uses: ./`, as relecteur does, reviews with the relecteur of its pull request.
+    # Installs relecteur before the checkout of the base branch below. In a repository that reviews
+    # itself with `uses: ./`, as relecteur does, the action's folder is the workspace: that checkout
+    # replaces its code with the base branch's, and relecteur installed afterwards would be the base
+    # branch's instead of the pull request's, without anything telling it.
     - name: Install relecteur and open-code-review
       if: steps.pr.outputs.review == 'true'
       shell: bash
