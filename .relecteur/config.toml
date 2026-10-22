@@ -1,3 +1,4 @@
+effort = "medium"
 language = "French"
 include = ["tests/**/*.py"]
 exclude = ["tests/fixtures/**"]
