@@ -68,13 +68,13 @@ runs:
       uses: actions/github-script@v9
       env:
         PR_NUMBER: ${{ steps.pr.outputs.number }}
-        HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
       with:
         github-token: ${{ inputs.github_token }}
         script: |
           const marker = '<!-- relecteur -->';
           const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-          const body = `${marker}<!-- relecteur under way -->\n⏳ **relecteur** relit cette PR au commit ${process.env.HEAD_SHA.slice(0, 7)} : ses remarques arriveront en commentaire sur les lignes concernées ([suivre la review](${run})).`;
+          const verb = context.payload.action === 'synchronize' ? 'reprend la review avec le dernier commit' : 'relit cette PR';
+          const body = `${marker}<!-- relecteur under way -->\n⏳ **relecteur** ${verb} : ses remarques arriveront en commentaire sur les lignes concernées ([suivre la review](${run})).`;
           const issue_number = Number(process.env.PR_NUMBER);
           const comments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number, per_page: 100 });
           const summary = comments.reverse().find((comment) => (comment.body || '').includes(marker));
