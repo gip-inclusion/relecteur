@@ -123,6 +123,9 @@ concernées. relecteur y ajoute :
   fichiers n'ont pas été relus et comment la relancer, et le job n'échoue que lorsque le reviewer
   est en cause, pas quand le modèle est indisponible (voir [Review en CI](docs/ci.md)).
 
+Pour situer relecteur face à des services de review comme Claude Code Review, CodeRabbit ou
+Greptile, voir [Comparaisons](docs/comparaisons.md).
+
 ## Documentation
 
 - [Review en CI](docs/ci.md) : quand l'action relit, `@relecteur`, le résumé et le statut du
@@ -130,4 +133,6 @@ concernées. relecteur y ajoute :
 - [Évaluation](docs/evaluation.md) : installation, cas, commandes et juge.
 - [Configuration](docs/configuration.md) : modèle, consignes du reviewer, réglages et relais
   vers Albert.
+- [Comparaisons](docs/comparaisons.md) : relecteur face à Claude Code Review, CodeRabbit et
+  Greptile.
 - [Contribuer](CONTRIBUTING.md) : développement et tests.
