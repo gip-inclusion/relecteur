@@ -8,6 +8,12 @@ python3 -m venv .venv
 .venv/bin/ruff check . && .venv/bin/ruff format --check .
 ```
 
+## Review des PR
+
+Chaque PR sur relecteur est relue par relecteur, avec l'action et le code de cette PR : la review
+sert aussi de test de bout en bout. Le reviewer suit `REVIEW.md` et les conventions
+d'`AGENTS.md`.
+
 ## Tests
 
 La suite de tests n'a besoin ni d'un dépôt applicatif, ni du réseau, ni d'un modèle : un test qui
