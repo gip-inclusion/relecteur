@@ -40,6 +40,17 @@ runs:
               return core.setOutput('review', 'false');
             }
           }
+          if (context.payload.action === 'synchronize') {
+            // A push reviews the new commit unless the pull request's review is done: once it is, the
+            // pull request is reviewed again on a comment only. Without any summary yet, no review has
+            // finished, as when the push cancelled the review of the opening before it began.
+            const comments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number: context.payload.pull_request.number, per_page: 100 });
+            const summary = comments.reverse().find((comment) => (comment.body || '').includes('<!-- relecteur -->'));
+            if (summary && !summary.body.includes('<!-- relecteur under way -->')) {
+              core.notice('The pull request has had its review: a push does not review it again.');
+              return core.setOutput('review', 'false');
+            }
+          }
           const { data: pr } = await github.rest.pulls.get({
             ...context.repo,
             pull_number: context.payload.pull_request?.number ?? context.payload.issue.number,
@@ -51,17 +62,21 @@ runs:
           // The intent of the change, as `relecteur eval` gives it from a case: title, then description.
           core.setOutput('background', [pr.title, pr.body].map((text) => (text || '').trim()).filter(Boolean).join('\n\n'));
 
-    # `relecteur post-review` updates in place the comment that carries this marker.
+    # `relecteur post-review` updates in place the comment that carries this marker. The second
+    # marker tells a push that the review is not done yet.
     - name: Tell that the review is under way
       if: steps.pr.outputs.review == 'true'
       uses: actions/github-script@v9
       env:
         PR_NUMBER: ${{ steps.pr.outputs.number }}
+        HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
       with:
         github-token: ${{ inputs.github_token }}
         script: |
           const marker = '<!-- relecteur -->';
-          const body = `${marker}\n⏳ **relecteur** relit cette PR : ses remarques arriveront en commentaire sur les lignes concernées.`;
+          const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+          const verb = context.payload.action === 'synchronize' ? `reprend la review avec le dernier commit (${process.env.HEAD_SHA.slice(0, 7)})` : 'relit cette PR';
+          const body = `${marker}<!-- relecteur under way -->\n⏳ **relecteur** ${verb} : ses remarques arriveront en commentaire sur les lignes concernées ([suivre la review](${run})).`;
           const issue_number = Number(process.env.PR_NUMBER);
           const comments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number, per_page: 100 });
           const summary = comments.reverse().find((comment) => (comment.body || '').includes(marker));
@@ -123,8 +138,10 @@ runs:
           --background "$BACKGROUND" --output "$RUNNER_TEMP/relecteur"
 
     # Fails the job when the reviewer, rather than the model, kept the review from the pull request.
+    # A review cancelled by a push publishes nothing, which leaves the summary under way for the run
+    # that reviews the new commit.
     - name: Post the review
-      if: always() && steps.pr.outputs.review == 'true'
+      if: ${{ !cancelled() && steps.pr.outputs.review == 'true' }}
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github_token }}

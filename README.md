@@ -32,7 +32,7 @@ Pas besoin de cas d'évaluation pour commencer.
 
    on:
      pull_request:
-       types: [opened, ready_for_review]
+       types: [opened, ready_for_review, synchronize]
      issue_comment:
        types: [created]
 
@@ -55,8 +55,10 @@ Pas besoin de cas d'évaluation pour commencer.
            && contains(github.event.comment.body, '@relecteur'))
        runs-on: ubuntu-latest
        timeout-minutes: 180
+       # A push cancels a review under way, which the action then runs again on the new commit.
        concurrency:
          group: relecteur-${{ github.event.pull_request.number || github.event.issue.number }}
+         cancel-in-progress: ${{ github.event_name == 'pull_request' }}
        steps:
          - uses: gip-inclusion/relecteur@<commit>
            with:
@@ -66,7 +68,8 @@ Pas besoin de cas d'évaluation pour commencer.
 3. Si vous le souhaitez, ajoutez à la racine un `REVIEW.md` qui précise ce que relecteur doit
    relever (voir [Instructions du reviewer](docs/configuration.md#instructions-du-reviewer)).
 
-relecteur relit chaque PR à son ouverture, ou quand elle sort de brouillon. Il commente les lignes
+relecteur relit chaque PR à son ouverture, ou quand elle sort de brouillon. Si vous poussez un
+commit avant la fin de la review, il reprend sur le nouveau commit. Il commente les lignes
 concernées et publie un résumé. Pour relancer une review, écrivez `@relecteur` dans un
 commentaire. Plus de détails dans [Review en CI](docs/ci.md).
 

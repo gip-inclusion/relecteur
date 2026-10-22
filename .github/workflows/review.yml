@@ -2,7 +2,7 @@ name: Review
 
 on:
   pull_request:
-    types: [opened, ready_for_review]
+    types: [opened, ready_for_review, synchronize]
   issue_comment:
     types: [created]
 
@@ -25,8 +25,10 @@ jobs:
         && contains(github.event.comment.body, '@relecteur'))
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    # A push cancels a review under way, which the action then runs again on the new commit.
     concurrency:
       group: relecteur-${{ github.event.pull_request.number || github.event.issue.number }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       # relecteur reviews a pull request with the action and the code of that pull request, which
       # tests them on a real one. A comment reviews with those of main.
