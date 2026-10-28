@@ -44,8 +44,6 @@ Pas besoin de cas d'évaluation pour commencer.
    jobs:
      relecteur:
        name: Relecteur
-       # Pull requests of bots are never reviewed. Those of forks get no secret: a comment of the
-       # team reviews them.
        if: >-
          (github.event_name == 'pull_request' && !github.event.pull_request.draft
            && github.event.pull_request.user.type != 'Bot'
@@ -56,7 +54,6 @@ Pas besoin de cas d'évaluation pour commencer.
            && contains(github.event.comment.body, '@relecteur'))
        runs-on: ubuntu-latest
        timeout-minutes: 180
-       # A push cancels a review under way, which the action then runs again on the new commit.
        concurrency:
          group: relecteur-${{ github.event.pull_request.number || github.event.issue.number }}
          cancel-in-progress: ${{ github.event_name == 'pull_request' }}
