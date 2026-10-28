@@ -43,13 +43,13 @@ class Settings:
     out by default (tests, templates), `exclude` takes files out, whatever `include` says. A higher
     effort spends more rounds and tokens on each group; each group sends its own requests to the
     model, so concurrency is what runs into a model's rate limit. Without a budget, a review spends
-    what it needs; without a language, findings come in English.
+    what it needs.
     """
 
     effort: str = "high"
     concurrency: int = 2
     max_tokens_budget: int | None = None
-    language: str | None = None
+    language: str = "French"
     include: list[str] = field(default_factory=list)
     exclude: list[str] = field(default_factory=list)
 
@@ -164,9 +164,7 @@ def _runs(repo, base, head, model, settings, background, instructions):
             Path(home, "rule.json").write_text(json.dumps(rule, ensure_ascii=False), "utf-8")
             command += ["--rule", str(Path(home, "rule.json"))]
         try:
-            if settings.language and (
-                error := _configure(model, home, "language", settings.language)
-            ):
+            if error := _configure(model, home, "language", settings.language):
                 raise _EngineError(error)
             runs = [_run(command, model, home)]
             for attempt in range(1, _RESUMES + 1):

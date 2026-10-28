@@ -389,7 +389,7 @@ def _describe(settings):
     return (
         f"effort {settings.effort}, {settings.concurrency} group(s) of files at once, "
         f"{f'at most {_token_count(budget)} tokens' if budget else 'no token budget'} per review, "
-        f"findings in {settings.language or 'English'}"
+        f"findings in {settings.language}"
     )
 
 
