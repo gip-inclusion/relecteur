@@ -212,6 +212,9 @@ def _environment(model, home):
         "OCR_LLM_TOKEN": model.api_key,
         "OCR_LLM_MODEL": model.name,
         "OCR_LLM_PROTOCOL": model.protocol,
+        # Left alone, the engine's launcher installs its latest version in the background, and a
+        # resume would then run with other built-in rules than the pinned version it resumes.
+        "OCR_NO_UPDATE": "1",
     }
     if model.protocol == "anthropic":
         # Anthropic's API takes an API key in x-api-key, where the engine sends a bearer token.
