@@ -14,6 +14,9 @@ url = "https://api.anthropic.com"
 name = "claude-opus-5-5"
 ```
 
+Ce fichier porte aussi les autres réglages, comme l'effort ou la langue des remarques (voir
+[Réglages](#réglages)).
+
 Mettez la clé d'API de ce modèle dans `RELECTEUR_API_KEY` : le secret du dépôt pour la CI, une
 variable d'environnement pour `relecteur eval`.
 
@@ -75,7 +78,7 @@ La table `[model]` est décrite [plus haut](#modèle), la table `[judge]` dans
 | `effort` | `--effort` | `high` | Le niveau d'effort du moteur : `low`, `medium` ou `high`. Plus il est élevé, plus le moteur dépense de tours et de tokens par groupe de fichiers. |
 | `concurrency` | `--concurrency` | `2` | Le nombre de groupes de fichiers relus en même temps. |
 | `max_tokens_budget` | | aucun | Le nombre de tokens qu'une review peut dépenser. Au-delà, le moteur ne relit plus de nouveaux fichiers, et la review compte comme non terminée. |
-| `language` | | anglais | La langue des remarques. |
+| `language` | | `French` | La langue des remarques, par exemple `English`. |
 | `include` | | aucun | Les motifs des fichiers à relire que le moteur écarte par défaut, comme les tests et les templates. |
 | `exclude` | | aucun | Les motifs des fichiers à ne jamais relire, comme les fichiers générés, même s'ils correspondent à `include`. |
 

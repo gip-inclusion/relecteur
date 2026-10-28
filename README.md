@@ -18,13 +18,22 @@ ses cas et ses consignes.
 
 Pas besoin de cas d'évaluation pour commencer.
 
-1. Créez dans le dépôt un secret `RELECTEUR_API_KEY` avec la clé d'API du modèle. Par défaut,
-   relecteur utilise `deepseek-v4-flash-0731`, servi par
+1. Choisissez le modèle. Par défaut, relecteur utilise `deepseek-v4-flash-0731`, servi par
    [Albert](https://guides.ia.numerique.gouv.fr/albert-api), où vous pouvez
    [générer une clé](https://guides.ia.numerique.gouv.fr/albert-api/compte-and-usage/api-keys).
-   Pour choisir un autre modèle, accessible par une API compatible OpenAI ou par l'API
-   d'Anthropic, voir [Modèle](docs/configuration.md#modèle).
-2. Copiez ce workflow dans `.github/workflows/review.yml` et mergez-le. Remplacez d'abord
+   Pour un autre modèle, accessible par l'API d'Anthropic ou par une API compatible OpenAI,
+   indiquez-le dans un fichier `.relecteur/config.toml` à la racine du dépôt :
+
+   ```toml
+   [model]
+   url = "https://api.anthropic.com"
+   name = "claude-opus-5-5"
+   ```
+
+   Sans ce fichier, relecteur envoie la clé à Albert, qui refuse les autres clés. Les autres
+   réglages sont décrits dans [Configuration](docs/configuration.md).
+2. Créez dans le dépôt un secret `RELECTEUR_API_KEY` avec la clé d'API de ce modèle.
+3. Copiez ce workflow dans `.github/workflows/review.yml` et mergez-le. Remplacez d'abord
    `<commit>` par le SHA complet du dernier commit de `main` de relecteur :
 
    ```yaml
@@ -44,8 +53,6 @@ Pas besoin de cas d'évaluation pour commencer.
    jobs:
      relecteur:
        name: Relecteur
-       # Pull requests of bots are never reviewed. Those of forks get no secret: a comment of the
-       # team reviews them.
        if: >-
          (github.event_name == 'pull_request' && !github.event.pull_request.draft
            && github.event.pull_request.user.type != 'Bot'
@@ -56,7 +63,6 @@ Pas besoin de cas d'évaluation pour commencer.
            && contains(github.event.comment.body, '@relecteur'))
        runs-on: ubuntu-latest
        timeout-minutes: 180
-       # A push cancels a review under way, which the action then runs again on the new commit.
        concurrency:
          group: relecteur-${{ github.event.pull_request.number || github.event.issue.number }}
          cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -66,7 +72,7 @@ Pas besoin de cas d'évaluation pour commencer.
              api_key: ${{ secrets.RELECTEUR_API_KEY }}
    ```
 
-3. Si vous le souhaitez, ajoutez à la racine un `REVIEW.md` qui précise ce que relecteur doit
+4. Si vous le souhaitez, ajoutez à la racine un `REVIEW.md` qui précise ce que relecteur doit
    relever (voir [Instructions du reviewer](docs/configuration.md#instructions-du-reviewer)).
 
 relecteur relit chaque PR à son ouverture, ou quand elle sort de brouillon. Si vous poussez un
