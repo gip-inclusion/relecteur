@@ -38,10 +38,14 @@ l'adresse, `protocol` est ignoré.
 Le reviewer suit `REVIEW.md`, qui dit comment relire, puis `AGENTS.md`, qui donne les conventions
 de code. relecteur les transmet au moteur comme consignes pour tous les fichiers.
 
+relecteur y ajoute sa consigne d'écriture, pour qu'on saisisse le défaut avant les détails. Chaque
+remarque s'ouvre sur le défaut, en gras. Elle explique ensuite comment il se produit, puis comment
+le corriger. Le code cité à l'appui est replié en dessous.
+
 Le moteur a ses propres consignes : une par langage ou type de fichier (Java, Go, TypeScript,
 YAML…), et une par défaut pour les autres, qui pousse à commenter le nommage et la couverture de
 tests. Vos consignes les remplacent toutes. Sans `REVIEW.md` ni `AGENTS.md`, le moteur garde les
-siennes.
+siennes, sans la consigne d'écriture de relecteur.
 
 `relecteur eval` lit ces fichiers dans votre copie de travail : vous pouvez donc tester une
 modification de `REVIEW.md` avant de la merger. En CI, ils sont lus sur la branche de base.

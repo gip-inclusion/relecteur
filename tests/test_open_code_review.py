@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from relecteur import open_code_review
-from relecteur.review import Finding, Review
+from relecteur.review import WRITING_INSTRUCTIONS, Finding, Review
 
 OUTPUTS = Path(__file__).parent / "fixtures" / "open_code_review"
 
@@ -143,7 +143,7 @@ def test_the_rule_file_applies_the_instructions_to_every_file_and_selects_the_fi
     rule = open_code_review.rule_file("Cite le code.", ["**/*_spec.rb"], ["db/migrate/**"])
 
     assert rule == {
-        "rules": [{"path": "**/*", "rule": "Cite le code."}],
+        "rules": [{"path": "**/*", "rule": f"Cite le code.\n\n{WRITING_INSTRUCTIONS}"}],
         "include": ["**/*_spec.rb"],
         "exclude": ["db/migrate/**"],
     }

@@ -3,6 +3,26 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
 
+# How the reviewer writes a finding, for the author to grasp the defect before its details: the
+# reviewer gets it after the repository's instructions.
+WRITING_INSTRUCTIONS = """## How to write a finding
+
+The author reads each finding on the pull request, next to the lines it comments, and should grasp
+the defect before reading its details:
+
+- Open with the defect, in bold, in a sentence that makes sense on its own.
+- Then explain how it happens: the input or state that triggers it, and what goes wrong. Take the
+  room the reasoning needs, in short paragraphs rather than one block.
+- End with the fix.
+- Put the code the finding rests on, each quote with its file and line, in a folded block whose
+  summary says, in the language of the findings, what it holds:
+
+  <details>
+  <summary>What shows it in the code</summary>
+
+  - `app/models/user.rb:12`: `validates :email, presence: true`
+  </details>"""
+
 
 @dataclass(frozen=True)
 class Finding:
