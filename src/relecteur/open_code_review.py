@@ -14,7 +14,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from relecteur.model import Model
-from relecteur.review import Finding, PullRequestReview, Review, Status
+from relecteur.review import WRITING_INSTRUCTIONS, Finding, PullRequestReview, Review, Status
 
 _INSTALL_COMMAND = "npm install --global @alibaba-group/open-code-review@1.12.13"
 
@@ -107,8 +107,8 @@ def pull_request_output(
 def rule_file(
     instructions: str | None, include: Sequence[str] = (), exclude: Sequence[str] = ()
 ) -> dict:
-    """The engine's rule file applying `instructions` to every file, among the files that
-    `include` and `exclude` select.
+    """The engine's rule file applying `instructions` to every file, then how to write a finding,
+    among the files that `include` and `exclude` select.
 
     The instructions replace the engine's own rules: one per language or file type (Java, Go,
     TypeScript, YAML…), and the default rule every other file gets, which leads the reviewer to
@@ -116,7 +116,7 @@ def rule_file(
     """
     rule: dict = {"rules": []}
     if instructions:
-        rule["rules"] = [{"path": "**/*", "rule": instructions}]
+        rule["rules"] = [{"path": "**/*", "rule": f"{instructions}\n\n{WRITING_INSTRUCTIONS}"}]
     if include:
         rule["include"] = list(include)
     if exclude:
